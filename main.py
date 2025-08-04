@@ -172,6 +172,9 @@ class Game:
         - shipname [new_name] (change ship name)
         - skills (show skill levels)
         
+        [bold yellow]AI Assistant:[/bold yellow]
+        - counselor, ai (chat with ship's AI counselor)
+        
         [bold yellow]System:[/bold yellow]
         - save, load, quit
         - clear (clear screen)
@@ -188,7 +191,7 @@ class Game:
 map - Show map   jump - Sector jumping   market - Trading
 talk - NPCs      holodeck - Entertainment sos - Rescue missions
 stocks - Market  bank - Banking          ship - Ship status
-cargo - Cargo    skills - Skills         help - Full help
+cargo - Cargo    skills - Skills         counselor - AI chat
 sectors - All sectors  sector - Current sector
         """
         self.console.print(Panel(quick_help, title="Quick Help", border_style="green"))
@@ -213,6 +216,7 @@ sectors - All sectors  sector - Current sector
         self.stock_market = StockMarket()
         self.banking_system = BankingSystem()
         self.sos_system = SOSSystem()
+        self.counselor = ShipCounselor()
         
         # Generate NPCs for current location
         current_location = self.world.get_current_location().name
@@ -828,43 +832,36 @@ sectors - All sectors  sector - Current sector
 
     def handle_counselor_interaction(self):
         """Handle interactions with the ship counselor AI"""
-        self.console.print("\n[bold cyan]Ship Counselor[/bold cyan]")
-        self.console.print("=" * 30)
-        self.console.print("Available commands:")
-        self.console.print("• status - Show your current status")
-        self.console.print("• skills - Show your skill levels")
-        self.console.print("• inventory - Show your inventory")
-        self.console.print("• ship - Show your ship status")
-        self.console.print("• cargo - Show your cargo holds")
-        self.console.print("• equip [item] - Equip an item")
-        self.console.print("• unequip [slot] - Unequip an item")
-        self.console.print("• skills - Show your skill levels")
-        self.console.print("• help - Show this help")
-
+        self.console.print("\n[bold cyan]Ship Counselor AI[/bold cyan]")
+        self.console.print("=" * 40)
+        self.console.print("Chat with your ship's AI counselor. Type 'bye' to exit.")
+        self.console.print("The counselor can provide advice on trading, combat, travel, and general gameplay.")
+        
+        # Initial greeting
+        initial_response = self.counselor.chat("hello")
+        self.counselor.display_response(initial_response)
+        
         while True:
-            command = self.input_handler.get_input()
-            if command.lower() == 'status':
-                self.show_ship_status()
-                self.show_cargo()
-                self.show_skills()
-            elif command.lower() == 'skills':
-                self.show_skills()
-            elif command.lower() == 'inventory':
-                self.display.show_inventory(self.player)
-            elif command.lower() == 'ship':
-                self.show_ship_status()
-            elif command.lower() == 'cargo':
-                self.show_cargo()
-            elif command.lower().startswith('equip'):
-                self.handle_equipment(command)
-            elif command.lower().startswith('unequip'):
-                self.handle_unequipment(command)
-            elif command.lower() == 'help':
-                self.handle_counselor_interaction()
-            elif command.lower() in ['quit', 'exit', 'q']:
+            self.console.print("\n[cyan]You:[/cyan] ", end="")
+            user_input = self.input_handler.get_input()
+            
+            if user_input.lower() in ['bye', 'goodbye', 'exit', 'quit', 'q']:
+                farewell_response = self.counselor.chat("goodbye")
+                self.counselor.display_response(farewell_response)
                 break
-            else:
-                self.console.print(f"[red]Unknown counselor command: {command}[/red]")
+            
+            # Get player context for more relevant advice
+            player_context = {
+                'credits': self.player.credits,
+                'health': self.player.health,
+                'fuel': getattr(self.player, 'fuel', 100),  # Default if not set
+                'level': self.player.level,
+                'experience': self.player.experience
+            }
+            
+            # Get counselor response
+            response = self.counselor.chat(user_input, player_context)
+            self.counselor.display_response(response)
 
     def handle_unequipment(self, command):
         """Handle unequipment commands"""
