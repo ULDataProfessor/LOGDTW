@@ -24,7 +24,26 @@ class Location:
     faction: str = "Neutral"
     fuel_cost: int = 0  # Fuel cost to travel here
     travel_time: int = 0  # Travel time in minutes
-    sector: str = "Alpha"  # Sector this location belongs to
+    sector: int = 1  # Sector number (TW2002 style)
+    
+    def __post_init__(self):
+        if self.connections is None:
+            self.connections = []
+        if self.items is None:
+            self.items = []
+        if self.npcs is None:
+            self.npcs = []
+        if self.services is None:
+            self.services = []
+
+@dataclass
+class SectorConnection:
+    """Represents a connection between sectors with TW2002-style types"""
+    destination_sector: int
+    connection_type: str  # "neutral", "federation", "enemy", "hop", "skip", "warp"
+    fuel_cost: int
+    travel_time: int
+    danger_level: int = 0
     
     def __post_init__(self):
         if self.connections is None:
@@ -90,14 +109,22 @@ class PlanetSurface:
         return map_str
 
 class World:
-    """Game world with locations and navigation"""
+    """Game world with locations and navigation - TW2002 style"""
     
     def __init__(self):
         self.locations = {}
         self.current_location = "Earth Station"
         self.player_coordinates = (0, 0, 0)
-        self.space_sector = "Alpha"
-        self.discovered_sectors = {"Alpha"}  # Track discovered sectors
+        self.current_sector = 1  # Current sector number
+        self.discovered_sectors = {1}  # Track discovered sectors
+        self.sector_connections = {}  # Sector connections with types
+        self.sector_factions = {}  # Faction control of sectors
+        self.traveling = False
+        self.travel_destination = None
+        self.travel_progress = 0
+        self.travel_start_time = 0
+        self.on_planet_surface = False
+        self.planet_surface = None
         
         # Initialize the game world
         self._create_world()
