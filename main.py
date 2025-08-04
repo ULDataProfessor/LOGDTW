@@ -151,6 +151,8 @@ class Game:
         - talk [npc_name] (start conversation)
         - npcs (list available NPCs)
         - chat [npc_name] (interact with NPC)
+        - Ask about rumors, secrets, classified data, trade secrets
+        - Seek prophecies from mystics, request stories from entertainers
         
         [bold yellow]Entertainment:[/bold yellow]
         - holodeck (access holodeck)
