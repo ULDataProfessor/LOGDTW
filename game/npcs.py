@@ -392,18 +392,22 @@ class NPCSystem:
         return {'message': '\n'.join(location_info)}
     
     def _handle_rumors_inquiry(self, npc: NPC) -> Dict:
-        """Handle rumors inquiry"""
-        rumors = [
-            "I heard there's a new trade route opening up.",
-            "Rumors say there's a hidden pirate base nearby.",
-            "Some say there's a mysterious alien artifact in the sector.",
-            "I've heard whispers about a secret research facility.",
-            "There's talk of a massive space battle coming.",
-            "Some claim there's a lost colony out there somewhere."
-        ]
-        
-        rumor = random.choice(rumors)
-        return {'message': f"{npc.name} shares a rumor: {rumor}"}
+        """Handle rumors inquiry - uses the new rumors dialogue"""
+        if 'rumors' in npc.dialogue:
+            rumor = random.choice(npc.dialogue['rumors'])
+            return {'message': f"{npc.name} shares a rumor: {rumor}"}
+        else:
+            # Fallback to generic rumors
+            generic_rumors = [
+                "I heard there's a new trade route opening up.",
+                "Rumors say there's a hidden pirate base nearby.",
+                "Some say there's a mysterious alien artifact in the sector.",
+                "I've heard whispers about a secret research facility.",
+                "There's talk of a massive space battle coming.",
+                "Some claim there's a lost colony out there somewhere."
+            ]
+            rumor = random.choice(generic_rumors)
+            return {'message': f"{npc.name} shares a rumor: {rumor}"}
     
     def _handle_browse_goods(self, npc: NPC) -> Dict:
         """Handle browsing goods"""
@@ -481,14 +485,15 @@ class NPCSystem:
         npc_names = [
             "Captain", "Commander", "Doctor", "Professor", "Trader",
             "Merchant", "Pilot", "Engineer", "Technician", "Guard",
-            "Official", "Scientist", "Artist", "Musician", "Chef"
+            "Official", "Scientist", "Artist", "Musician", "Chef",
+            "Mystic", "Oracle", "Seer", "Prophet", "Sage"
         ]
         
         npcs = []
         for i in range(num_npcs):
             npc_type = random.choice(npc_types)
             name = f"{random.choice(npc_names)} {chr(65 + i)}"
-            faction = random.choice(["Federation", "Pirates", "Scientists", "Traders", "Neutral"])
+            faction = random.choice(["Federation", "Pirates", "Scientists", "Traders", "Neutral", "Mystics"])
             
             npc = self.create_npc(name, npc_type, location, faction)
             npcs.append(npc)
