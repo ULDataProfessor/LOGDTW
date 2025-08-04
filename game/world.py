@@ -147,9 +147,9 @@ class World:
         self.planet_surface = None
         
     def _create_world(self):
-        """Create the game world with locations"""
+        """Create the game world with TW2002-style numbered sectors"""
         
-        # Create locations
+        # Create locations with numbered sectors
         locations_data = [
             {
                 'name': 'Earth Station',
@@ -162,7 +162,7 @@ class World:
                 'faction': 'Federation',
                 'fuel_cost': 0,
                 'travel_time': 0,
-                'sector': 'Alpha'
+                'sector': 1
             },
             {
                 'name': 'Mars Colony',
@@ -175,7 +175,7 @@ class World:
                 'faction': 'Federation',
                 'fuel_cost': 5,
                 'travel_time': 30,
-                'sector': 'Beta'
+                'sector': 2
             },
             {
                 'name': 'Luna Base',
@@ -188,7 +188,7 @@ class World:
                 'faction': 'Scientists',
                 'fuel_cost': 3,
                 'travel_time': 20,
-                'sector': 'Gamma'
+                'sector': 3
             },
             {
                 'name': 'Asteroid Belt',
@@ -201,7 +201,7 @@ class World:
                 'faction': 'Neutral',
                 'fuel_cost': 8,
                 'travel_time': 45,
-                'sector': 'Delta'
+                'sector': 4
             },
             {
                 'name': 'Pirate Haven',
@@ -214,7 +214,7 @@ class World:
                 'faction': 'Pirates',
                 'fuel_cost': 10,
                 'travel_time': 60,
-                'sector': 'Epsilon'
+                'sector': 5
             },
             {
                 'name': 'Deep Space Lab',
@@ -227,7 +227,7 @@ class World:
                 'faction': 'Scientists',
                 'fuel_cost': 6,
                 'travel_time': 40,
-                'sector': 'Zeta'
+                'sector': 6
             },
             {
                 'name': 'Outer Rim',
@@ -240,7 +240,7 @@ class World:
                 'faction': 'Neutral',
                 'fuel_cost': 15,
                 'travel_time': 90,
-                'sector': 'Omega'
+                'sector': 7
             },
             {
                 'name': 'Nebula Zone',
@@ -253,7 +253,7 @@ class World:
                 'faction': 'Neutral',
                 'fuel_cost': 12,
                 'travel_time': 75,
-                'sector': 'Nova'
+                'sector': 8
             }
         ]
         
@@ -274,8 +274,87 @@ class World:
             )
             self.locations[loc_data['name']] = location
         
+        # Set up sector factions
+        self.sector_factions = {
+            1: "Federation",    # Earth Station
+            2: "Federation",    # Mars Colony
+            3: "Scientists",    # Luna Base
+            4: "Neutral",       # Asteroid Belt
+            5: "Pirates",       # Pirate Haven
+            6: "Scientists",    # Deep Space Lab
+            7: "Neutral",       # Outer Rim
+            8: "Neutral"        # Nebula Zone
+        }
+        
+        # Create TW2002-style sector connections
+        self._create_sector_connections()
+        
         # Add some items to locations
         self._add_items_to_locations()
+    
+    def _create_sector_connections(self):
+        """Create TW2002-style sector connections with different types"""
+        # Initialize sector connections dictionary
+        self.sector_connections = {}
+        
+        # Define connections between sectors with types
+        connections_data = [
+            # From Sector 1 (Earth Station)
+            (1, 2, "federation", 5, 30),   # Earth to Mars - Federation space
+            (1, 3, "federation", 3, 20),   # Earth to Luna - Federation space
+            
+            # From Sector 2 (Mars Colony)
+            (2, 1, "federation", 5, 30),   # Mars to Earth - Federation space
+            (2, 4, "neutral", 8, 45),      # Mars to Asteroid Belt - Neutral space
+            
+            # From Sector 3 (Luna Base)
+            (3, 1, "federation", 3, 20),   # Luna to Earth - Federation space
+            (3, 6, "hop", 6, 40),          # Luna to Deep Space Lab - Hop connection
+            
+            # From Sector 4 (Asteroid Belt)
+            (4, 2, "neutral", 8, 45),      # Asteroid Belt to Mars - Neutral space
+            (4, 5, "enemy", 10, 60),       # Asteroid Belt to Pirate Haven - Enemy space
+            
+            # From Sector 5 (Pirate Haven)
+            (5, 4, "enemy", 10, 60),       # Pirate Haven to Asteroid Belt - Enemy space
+            (5, 7, "skip", 15, 90),        # Pirate Haven to Outer Rim - Skip connection
+            
+            # From Sector 6 (Deep Space Lab)
+            (6, 3, "hop", 6, 40),          # Deep Space Lab to Luna - Hop connection
+            (6, 8, "warp", 12, 75),        # Deep Space Lab to Nebula Zone - Warp connection
+            
+            # From Sector 7 (Outer Rim)
+            (7, 5, "skip", 15, 90),        # Outer Rim to Pirate Haven - Skip connection
+            
+            # From Sector 8 (Nebula Zone)
+            (8, 6, "warp", 12, 75),        # Nebula Zone to Deep Space Lab - Warp connection
+        ]
+        
+        # Create sector connections
+        for source_sector, dest_sector, conn_type, fuel_cost, travel_time in connections_data:
+            if source_sector not in self.sector_connections:
+                self.sector_connections[source_sector] = []
+            
+            connection = SectorConnection(
+                destination_sector=dest_sector,
+                connection_type=conn_type,
+                fuel_cost=fuel_cost,
+                travel_time=travel_time,
+                danger_level=self._get_connection_danger(conn_type)
+            )
+            self.sector_connections[source_sector].append(connection)
+    
+    def _get_connection_danger(self, connection_type: str) -> int:
+        """Get danger level based on connection type"""
+        danger_levels = {
+            "federation": 1,
+            "neutral": 3,
+            "enemy": 8,
+            "hop": 2,
+            "skip": 6,
+            "warp": 4
+        }
+        return danger_levels.get(connection_type, 5)
         
     def _create_map_data(self) -> Dict:
         """Create map data for visual representation"""
@@ -338,48 +417,80 @@ class World:
         """Get the current location object"""
         return self.locations.get(self.current_location)
 
-    def get_available_jumps(self) -> List[str]:
-        """Get list of available sector jumps from current location"""
-        current_loc = self.get_current_location()
-        if current_loc:
-            return current_loc.connections
-        return []
+    def get_available_jumps(self) -> List[Dict]:
+        """Get available sector jumps from current sector (TW2002 style)"""
+        if self.current_sector not in self.sector_connections:
+            return []
+        
+        available_jumps = []
+        for connection in self.sector_connections[self.current_sector]:
+            # Check if destination sector has any locations
+            sector_locations = [loc for loc in self.locations.values() if loc.sector == connection.destination_sector]
+            if sector_locations:
+                available_jumps.append({
+                    'sector': connection.destination_sector,
+                    'type': connection.connection_type,
+                    'fuel_cost': connection.fuel_cost,
+                    'travel_time': connection.travel_time,
+                    'danger_level': connection.danger_level,
+                    'faction': self.sector_factions.get(connection.destination_sector, "Unknown")
+                })
+        
+        return available_jumps
 
-    def can_jump_to(self, destination: str) -> bool:
-        """Check if player can jump to destination"""
-        current_loc = self.get_current_location()
-        if not current_loc:
+    def can_jump_to_sector(self, sector_number: int) -> bool:
+        """Check if player can jump to sector number"""
+        if self.current_sector not in self.sector_connections:
             return False
         
-        return destination in current_loc.connections
+        for connection in self.sector_connections[self.current_sector]:
+            if connection.destination_sector == sector_number:
+                return True
+        return False
 
-    def jump_to_sector(self, destination: str, player) -> Dict:
-        """Jump to a connected sector"""
-        if not self.can_jump_to(destination):
-            return {'success': False, 'message': f'Cannot jump to {destination} from here'}
+    def jump_to_sector(self, sector_number: int, player) -> Dict:
+        """Jump to a connected sector (TW2002 style)"""
+        if not self.can_jump_to_sector(sector_number):
+            return {'success': False, 'message': f'Cannot jump to sector {sector_number} from here'}
         
-        dest_location = self.locations[destination]
+        # Find the connection details
+        connection = None
+        for conn in self.sector_connections[self.current_sector]:
+            if conn.destination_sector == sector_number:
+                connection = conn
+                break
+        
+        if not connection:
+            return {'success': False, 'message': f'No connection to sector {sector_number}'}
         
         # Check fuel requirements
-        if player.fuel < dest_location.fuel_cost:
-            return {'success': False, 'message': f'Not enough fuel. Need {dest_location.fuel_cost}, have {player.fuel}'}
+        if player.fuel < connection.fuel_cost:
+            return {'success': False, 'message': f'Not enough fuel. Need {connection.fuel_cost}, have {player.fuel}'}
+        
+        # Find a location in the destination sector
+        sector_locations = [loc for loc in self.locations.values() if loc.sector == sector_number]
+        if not sector_locations:
+            return {'success': False, 'message': f'No locations found in sector {sector_number}'}
+        
+        dest_location = sector_locations[0]  # Use first location in sector
         
         # Start jump
         self.is_traveling = True
-        self.travel_destination = destination
+        self.travel_destination = dest_location.name
         self.travel_progress = 0
-        self.travel_time = dest_location.travel_time
+        self.travel_time = connection.travel_time
         self.travel_start_time = time.time()
         
         # Discover the sector
-        self.discovered_sectors.add(dest_location.sector)
+        self.discovered_sectors.add(sector_number)
         
         return {
             'success': True,
-            'message': f'Jumping to {destination} in sector {dest_location.sector}. Estimated time: {dest_location.travel_time} minutes',
-            'travel_time': dest_location.travel_time,
-            'fuel_cost': dest_location.fuel_cost,
-            'sector': dest_location.sector
+            'message': f'Jumping to sector {sector_number} ({connection.connection_type} space). Estimated time: {connection.travel_time} minutes',
+            'travel_time': connection.travel_time,
+            'fuel_cost': connection.fuel_cost,
+            'sector': sector_number,
+            'connection_type': connection.connection_type
         }
 
     def update_jump(self, player) -> Dict:
