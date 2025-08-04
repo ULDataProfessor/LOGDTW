@@ -32,6 +32,8 @@ from game.npcs import NPCSystem
 from game.holodeck import HolodeckSystem
 from game.stock_market import StockMarket, BankingSystem
 from game.sos_system import SOSSystem
+from game.skills import Skill
+from game.ai_counselor import ShipCounselor
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
 
@@ -401,6 +403,9 @@ sectors - All sectors  sector - Current sector
                         self.console.print(result['message'])
                         if result.get('success'):
                             self.console.print(f"[green]You can now 'jump {result['planet']}' or 'land' to visit the new planet![/green]")
+                
+                elif command.lower() in ['counselor', 'ai']:
+                    self.handle_counselor_interaction()
                 
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")
@@ -820,6 +825,61 @@ sectors - All sectors  sector - Current sector
         
         # Combat logic would go here
         self.console.print("[yellow]Combat system not yet implemented.[/yellow]")
+
+    def handle_counselor_interaction(self):
+        """Handle interactions with the ship counselor AI"""
+        self.console.print("\n[bold cyan]Ship Counselor[/bold cyan]")
+        self.console.print("=" * 30)
+        self.console.print("Available commands:")
+        self.console.print("• status - Show your current status")
+        self.console.print("• skills - Show your skill levels")
+        self.console.print("• inventory - Show your inventory")
+        self.console.print("• ship - Show your ship status")
+        self.console.print("• cargo - Show your cargo holds")
+        self.console.print("• equip [item] - Equip an item")
+        self.console.print("• unequip [slot] - Unequip an item")
+        self.console.print("• skills - Show your skill levels")
+        self.console.print("• help - Show this help")
+
+        while True:
+            command = self.input_handler.get_input()
+            if command.lower() == 'status':
+                self.show_ship_status()
+                self.show_cargo()
+                self.show_skills()
+            elif command.lower() == 'skills':
+                self.show_skills()
+            elif command.lower() == 'inventory':
+                self.display.show_inventory(self.player)
+            elif command.lower() == 'ship':
+                self.show_ship_status()
+            elif command.lower() == 'cargo':
+                self.show_cargo()
+            elif command.lower().startswith('equip'):
+                self.handle_equipment(command)
+            elif command.lower().startswith('unequip'):
+                self.handle_unequipment(command)
+            elif command.lower() == 'help':
+                self.handle_counselor_interaction()
+            elif command.lower() in ['quit', 'exit', 'q']:
+                break
+            else:
+                self.console.print(f"[red]Unknown counselor command: {command}[/red]")
+
+    def handle_unequipment(self, command):
+        """Handle unequipment commands"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: unequip [slot_name][/red]")
+            return
+        
+        slot_name = ' '.join(parts[1:])
+        success = self.player.unequip_item(slot_name)
+        
+        if success:
+            self.console.print(f"[green]Unequipped {slot_name}.[/green]")
+        else:
+            self.console.print(f"[red]Could not unequip {slot_name}.[/red]")
 
     def show_sectors(self):
         """Show all sectors and their status"""
