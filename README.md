@@ -1,6 +1,6 @@
-# LOGDTW2002 - Legend of the Green Dragon meets TW2002
+# LOGDTW - Legend of the Green Dragon meets TW
 
-A text-based adventure game that combines the RPG elements of Legend of the Green Dragon with the space exploration and resource management of TW2002.
+A text-based adventure game that combines the RPG elements of Legend of the Green Dragon with the space exploration and resource management of TW.
 
 ## Features
 
