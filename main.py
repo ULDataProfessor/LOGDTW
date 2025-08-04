@@ -7,6 +7,7 @@ A text-based adventure game combining RPG elements with space exploration
 import os
 import sys
 import time
+import random
 from colorama import init, Fore, Back, Style
 from rich.console import Console
 from rich.panel import Panel
