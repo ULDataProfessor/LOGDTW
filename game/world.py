@@ -522,13 +522,23 @@ class World:
         """Complete jump to destination"""
         dest_location = self.locations[self.travel_destination]
         
+        # Find the connection used for this jump
+        connection = None
+        for conn in self.sector_connections.get(self.current_sector, []):
+            if conn.destination_sector == dest_location.sector:
+                connection = conn
+                break
+        
         # Consume fuel
-        player.use_fuel(dest_location.fuel_cost)
+        if connection:
+            player.use_fuel(connection.fuel_cost)
+        else:
+            player.use_fuel(dest_location.fuel_cost)
         
         # Update location and sector
         self.current_location = self.travel_destination
         self.player_coordinates = dest_location.coordinates
-        self.space_sector = dest_location.sector
+        self.current_sector = dest_location.sector
         
         # Reset travel state
         self.is_traveling = False
