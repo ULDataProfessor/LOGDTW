@@ -236,6 +236,28 @@ sectors - All sectors  sector - Current sector
                         time.sleep(1)
                         continue
                 
+                # Check if on a planet surface
+                if self.world.is_on_planet_surface():
+                    self.display.show_planet_surface(self.world)
+                    self.display.show_planet_surface_instructions(self.world)
+                    command = self.input_handler.get_input()
+                    if command.lower() in ['quit', 'exit', 'q']:
+                        if Confirm.ask("Are you sure you want to quit?"):
+                            self.running = False
+                            break
+                    elif command.lower() in ['leave', 'orbit']:
+                        result = self.world.leave_planet_surface()
+                        self.console.print(result['message'])
+                    elif command.lower() in ['n', 'north', 's', 'south', 'e', 'east', 'w', 'west']:
+                        dir_map = {'n': 'north', 's': 'south', 'e': 'east', 'w': 'west'}
+                        direction = dir_map.get(command.lower(), command.lower())
+                        moved = self.world.move_on_surface(direction)
+                        if not moved:
+                            self.console.print(f"[red]You can't move {direction} from here.[/red]")
+                    else:
+                        self.console.print("[yellow]Available commands: n/s/e/w to move, leave/orbit to return to space.[/yellow]")
+                    continue
+                
                 # Check if in holodeck
                 holodeck_status = self.holodeck_system.update_program(self.player)
                 if holodeck_status.get('active'):
@@ -256,9 +278,8 @@ sectors - All sectors  sector - Current sector
                 # Display current location and status
                 self.display.show_location(self.world.get_current_location())
                 self.display.show_status(self.player)
-                
-                # Show available sector jumps
-                self._show_warp_ports()
+                self.display.show_adjacent_sectors(self.world)
+                self.display.show_space_instructions(self.world)
                 
                 # Get player input
                 command = self.input_handler.get_input()
@@ -286,6 +307,10 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower() in ['north', 'n', 'south', 's', 'east', 'e', 'west', 'w']:
                     self.handle_movement(command.lower())
+                
+                elif command.lower() == 'land':
+                    result = self.world.land_on_planet()
+                    self.console.print(result['message'])
                 
                 elif command.lower().startswith('jump'):
                     self.handle_travel(command)
@@ -367,6 +392,15 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower() in ['quests', 'missions']:
                     self.display.show_quests(self.quest_system.get_available_quests(self.player))
+                
+                elif command.lower() in ['genesis', 'fire genesis']:
+                    if self.world.is_on_planet_surface():
+                        self.console.print("[red]You must be in space to use the Genesis Torpedo.[/red]")
+                    else:
+                        result = self.world.fire_genesis_torpedo(self.player)
+                        self.console.print(result['message'])
+                        if result.get('success'):
+                            self.console.print(f"[green]You can now 'jump {result['planet']}' or 'land' to visit the new planet![/green]")
                 
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")

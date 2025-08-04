@@ -41,15 +41,16 @@ class TradingSystem:
         """Create available trade goods"""
         goods_data = [
             # Minerals
-            {'name': 'Iron Ore', 'base_price': 10, 'description': 'Basic industrial metal', 'category': 'minerals'},
+            {'name': 'Iron Ore', 'base_price': 10, 'description': 'Basic raw material', 'category': 'minerals'},
             {'name': 'Gold', 'base_price': 100, 'description': 'Precious metal', 'category': 'minerals'},
             {'name': 'Platinum', 'base_price': 200, 'description': 'Rare industrial metal', 'category': 'minerals'},
             {'name': 'Uranium', 'base_price': 500, 'description': 'Radioactive material', 'category': 'minerals'},
             {'name': 'Raw Minerals', 'base_price': 20, 'description': 'Unprocessed ore', 'category': 'minerals'},
+            {'name': 'Ammolite', 'base_price': 350, 'description': 'Rare iridescent gemstone prized by collectors and jewelers', 'category': 'minerals'},
             
             # Technology
             {'name': 'Computer Chips', 'base_price': 50, 'description': 'Electronic components', 'category': 'technology'},
-            {'name': 'Quantum Processors', 'base_price': 1000, 'description': 'Advanced computing technology', 'category': 'technology'},
+            {'name': 'Quantum Processors', 'base_price': 250, 'description': 'Advanced computing units', 'category': 'technology'},
             {'name': 'Energy Cells', 'base_price': 25, 'description': 'Power storage units', 'category': 'technology'},
             {'name': 'Shield Generators', 'base_price': 300, 'description': 'Defensive technology', 'category': 'technology'},
             {'name': 'Quantum Scanner', 'base_price': 400, 'description': 'Advanced detection device', 'category': 'technology'},

@@ -447,3 +447,42 @@ class DisplayManager:
                 map_text += f"[dim]? {sector} (Undiscovered)[/dim]\n"
         
         self.console.print(Panel(map_text, title="Sector Map", border_style="cyan")) 
+
+    def show_adjacent_sectors(self, world):
+        """Show adjacent sectors if in space, or adjacent tiles if on planet surface"""
+        if world.is_on_planet_surface():
+            adj = world.get_surface_adjacent()
+            if adj:
+                adj_text = "[bold cyan]Adjacent Areas:[/bold cyan] "
+                adj_text += ', '.join([f"{dir.title()}" for dir in adj.keys()])
+                self.console.print(adj_text)
+        else:
+            current_location = world.get_current_location()
+            if current_location and current_location.connections:
+                adj_text = "[bold cyan]Adjacent Sectors:[/bold cyan] "
+                adj_text += ', '.join([f"[{sector}]" for sector in current_location.connections])
+                self.console.print(adj_text)
+
+    def show_space_instructions(self, world):
+        """Show contextual instructions for space navigation"""
+        location = world.get_current_location()
+        if location and location.location_type == 'planet':
+            self.console.print("[yellow]Type 'land' to land on the planet. Use 'jump [sector]' or 'warp [sector]' to travel. Type 'look' to examine, 'help' for more.[/yellow]")
+        else:
+            self.console.print("[yellow]Use 'jump [sector]' or 'warp [sector]' to travel. Type 'look' to examine, 'help' for more.[/yellow]")
+
+    def show_planet_surface(self, world):
+        """Show the planetary surface map and current area description"""
+        self.console.print(world.get_surface_map())
+        area = world.get_surface_area()
+        if area:
+            desc = area.get('desc', 'Unknown area')
+            self.console.print(f"[bold cyan]Current Area:[/bold cyan] {desc}")
+
+    def show_planet_surface_instructions(self, world):
+        """Show contextual instructions for planetary surface movement"""
+        adj = world.get_surface_adjacent()
+        if adj:
+            adj_text = "[bold cyan]You can move:[/bold cyan] " + ', '.join([dir.title() for dir in adj.keys()])
+            self.console.print(adj_text)
+        self.console.print("[yellow]Use n/s/e/w to move, 'leave' or 'orbit' to return to space. Type 'look' to examine area.[/yellow]") 

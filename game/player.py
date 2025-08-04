@@ -135,7 +135,8 @@ class Player:
             Item("Med Kit", "Basic medical supplies", 25, "consumable"),
             Item("Energy Shield", "Personal protective field", 40, "shield", defense=5),
             Item("Repair Tool", "Basic repair equipment", 20, "equipment"),
-            Item("Navigation Computer", "Advanced navigation system", 60, "equipment")
+            Item("Navigation Computer", "Advanced navigation system", 60, "equipment"),
+            Item("Genesis Torpedo", "A device capable of creating a new planet.", 1000, "special")
         ]
         
         for item in starting_items:
@@ -198,11 +199,15 @@ class Player:
         self.inventory.append(item)
         return True
     
-    def remove_item(self, item_name: str) -> Optional[Item]:
-        """Remove item from inventory by name"""
+    def remove_item(self, item_name: str, quantity: int = 1) -> Optional[Item]:
+        """Remove item from inventory by name and quantity"""
         for i, item in enumerate(self.inventory):
             if item.name.lower() == item_name.lower():
-                return self.inventory.pop(i)
+                if item.quantity > quantity:
+                    item.quantity -= quantity
+                    return item
+                else:
+                    return self.inventory.pop(i)
         return None
     
     def get_item(self, item_name: str) -> Optional[Item]:

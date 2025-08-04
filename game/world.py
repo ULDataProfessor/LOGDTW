@@ -36,6 +36,59 @@ class Location:
         if self.services is None:
             self.services = []
 
+class PlanetSurface:
+    """Represents a planetary surface for ground movement"""
+    def __init__(self, name, width=5, height=5):
+        self.name = name
+        self.width = width
+        self.height = height
+        self.grid = [[{'desc': f'Area ({x},{y})', 'items': [], 'npcs': []} for x in range(width)] for y in range(height)]
+        self.player_pos = (width // 2, height // 2)  # Start in the center
+
+    def move(self, direction):
+        x, y = self.player_pos
+        if direction == 'north' and y > 0:
+            y -= 1
+        elif direction == 'south' and y < self.height - 1:
+            y += 1
+        elif direction == 'west' and x > 0:
+            x -= 1
+        elif direction == 'east' and x < self.width - 1:
+            x += 1
+        else:
+            return False  # Can't move
+        self.player_pos = (x, y)
+        return True
+
+    def get_adjacent(self):
+        x, y = self.player_pos
+        adj = {}
+        if y > 0:
+            adj['north'] = (x, y-1)
+        if y < self.height - 1:
+            adj['south'] = (x, y+1)
+        if x > 0:
+            adj['west'] = (x-1, y)
+        if x < self.width - 1:
+            adj['east'] = (x+1, y)
+        return adj
+
+    def get_current_area(self):
+        x, y = self.player_pos
+        return self.grid[y][x]
+
+    def get_map(self):
+        map_str = "\n[bold cyan]Planetary Surface Map[/bold cyan]\n"
+        for y in range(self.height):
+            row = ''
+            for x in range(self.width):
+                if (x, y) == self.player_pos:
+                    row += '[bold red]X[/bold red]'
+                else:
+                    row += '.'
+            map_str += row + '\n'
+        return map_str
+
 class World:
     """Game world with locations and navigation"""
     
@@ -62,6 +115,9 @@ class World:
         
         # Map data
         self.map_data = self._create_map_data()
+        
+        self.on_planet_surface = False
+        self.planet_surface = None
         
     def _create_world(self):
         """Create the game world with locations"""
@@ -432,7 +488,7 @@ class World:
         map_str += "[bold cyan]Sectors:[/bold cyan]\n"
         for sector in all_sectors:
             if sector in discovered_sectors:
-                sector_info = self.get_sector_info(sector_name=sector)
+                sector_info = self.get_sector_info(sector)
                 map_str += f"  [green]✓ {sector}[/green] - {', '.join(sector_info['locations'])}\n"
             else:
                 map_str += f"  [dim]? Unknown Sector[/dim]\n"
@@ -565,4 +621,91 @@ class World:
             'coordinates': self.player_coordinates,
             'weather': self.get_weather_conditions(),
             'danger_level': current_loc.danger_level if current_loc else 0
+        }
+
+    def land_on_planet(self):
+        """Land on a planet and enter surface mode if possible"""
+        location = self.get_current_location()
+        if location and location.location_type == 'planet':
+            self.on_planet_surface = True
+            self.planet_surface = PlanetSurface(location.name)
+            return {'success': True, 'message': f'You have landed on {location.name}. Use n/s/e/w to move.'}
+        return {'success': False, 'message': 'You can only land on planets.'}
+
+    def leave_planet_surface(self):
+        """Leave the planetary surface and return to orbit"""
+        if self.on_planet_surface:
+            self.on_planet_surface = False
+            self.planet_surface = None
+            return {'success': True, 'message': 'You have returned to orbit.'}
+        return {'success': False, 'message': 'You are not on a planetary surface.'}
+
+    def move_on_surface(self, direction):
+        if self.on_planet_surface and self.planet_surface:
+            return self.planet_surface.move(direction)
+        return False
+
+    def get_surface_adjacent(self):
+        if self.on_planet_surface and self.planet_surface:
+            return self.planet_surface.get_adjacent()
+        return {}
+
+    def get_surface_area(self):
+        if self.on_planet_surface and self.planet_surface:
+            return self.planet_surface.get_current_area()
+        return None
+
+    def get_surface_map(self):
+        if self.on_planet_surface and self.planet_surface:
+            return self.planet_surface.get_map()
+        return ''
+
+    def is_on_planet_surface(self):
+        return self.on_planet_surface
+
+    def fire_genesis_torpedo(self, player):
+        """Create a new planet in the current sector using the Genesis Torpedo"""
+        # Check if player has the torpedo
+        if not player.has_item('Genesis Torpedo'):
+            return {'success': False, 'message': 'You do not have a Genesis Torpedo.'}
+        
+        # Get current sector
+        current_loc = self.get_current_location()
+        if not current_loc:
+            return {'success': False, 'message': 'Unknown location.'}
+        sector = current_loc.sector
+        
+        # Generate a unique planet name
+        base_names = ['Eden', 'Genesis', 'Nova', 'Gaia', 'Aurora', 'Haven', 'Prometheus', 'Arcadia']
+        suffix = random.randint(100, 999)
+        planet_name = f"{random.choice(base_names)}-{suffix}"
+        
+        # Create the new planet location
+        new_planet = Location(
+            name=planet_name,
+            description="A lush, newly-formed world teeming with potential.",
+            location_type='planet',
+            coordinates=(random.randint(0, 200), random.randint(0, 200), 0),
+            connections=[current_loc.name],
+            services=['trading', 'exploration', 'research'],
+            danger_level=random.randint(1, 4),
+            faction='Neutral',
+            fuel_cost=7,
+            travel_time=35,
+            sector=sector
+        )
+        self.locations[planet_name] = new_planet
+        # Connect current location to new planet
+        if planet_name not in current_loc.connections:
+            current_loc.connections.append(planet_name)
+        if current_loc.name not in new_planet.connections:
+            new_planet.connections.append(current_loc.name)
+        
+        # Remove the torpedo from inventory
+        player.remove_item('Genesis Torpedo')
+        
+        return {
+            'success': True,
+            'message': f'Genesis Torpedo fired! A new planet, {planet_name}, has formed in sector {sector}.',
+            'planet': planet_name
         }
