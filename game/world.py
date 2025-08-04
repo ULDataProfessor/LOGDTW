@@ -24,6 +24,7 @@ class Location:
     faction: str = "Neutral"
     fuel_cost: int = 0  # Fuel cost to travel here
     travel_time: int = 0  # Travel time in minutes
+    sector: str = "Alpha"  # Sector this location belongs to
     
     def __post_init__(self):
         if self.connections is None:
@@ -43,6 +44,7 @@ class World:
         self.current_location = "Earth Station"
         self.player_coordinates = (0, 0, 0)
         self.space_sector = "Alpha"
+        self.discovered_sectors = {"Alpha"}  # Track discovered sectors
         
         # Initialize the game world
         self._create_world()
@@ -76,7 +78,8 @@ class World:
                 'danger_level': 1,
                 'faction': 'Federation',
                 'fuel_cost': 0,
-                'travel_time': 0
+                'travel_time': 0,
+                'sector': 'Alpha'
             },
             {
                 'name': 'Mars Colony',
@@ -88,7 +91,8 @@ class World:
                 'danger_level': 3,
                 'faction': 'Federation',
                 'fuel_cost': 5,
-                'travel_time': 30
+                'travel_time': 30,
+                'sector': 'Beta'
             },
             {
                 'name': 'Luna Base',
@@ -100,7 +104,8 @@ class World:
                 'danger_level': 2,
                 'faction': 'Scientists',
                 'fuel_cost': 3,
-                'travel_time': 20
+                'travel_time': 20,
+                'sector': 'Gamma'
             },
             {
                 'name': 'Asteroid Belt',
@@ -112,7 +117,8 @@ class World:
                 'danger_level': 7,
                 'faction': 'Neutral',
                 'fuel_cost': 8,
-                'travel_time': 45
+                'travel_time': 45,
+                'sector': 'Delta'
             },
             {
                 'name': 'Pirate Haven',
@@ -124,7 +130,8 @@ class World:
                 'danger_level': 9,
                 'faction': 'Pirates',
                 'fuel_cost': 10,
-                'travel_time': 60
+                'travel_time': 60,
+                'sector': 'Epsilon'
             },
             {
                 'name': 'Deep Space Lab',
@@ -136,7 +143,8 @@ class World:
                 'danger_level': 4,
                 'faction': 'Scientists',
                 'fuel_cost': 6,
-                'travel_time': 40
+                'travel_time': 40,
+                'sector': 'Zeta'
             },
             {
                 'name': 'Outer Rim',
@@ -148,7 +156,8 @@ class World:
                 'danger_level': 10,
                 'faction': 'Neutral',
                 'fuel_cost': 15,
-                'travel_time': 90
+                'travel_time': 90,
+                'sector': 'Omega'
             },
             {
                 'name': 'Nebula Zone',
@@ -160,7 +169,8 @@ class World:
                 'danger_level': 6,
                 'faction': 'Neutral',
                 'fuel_cost': 12,
-                'travel_time': 75
+                'travel_time': 75,
+                'sector': 'Nova'
             }
         ]
         
@@ -176,7 +186,8 @@ class World:
                 danger_level=loc_data['danger_level'],
                 faction=loc_data['faction'],
                 fuel_cost=loc_data['fuel_cost'],
-                travel_time=loc_data['travel_time']
+                travel_time=loc_data['travel_time'],
+                sector=loc_data['sector']
             )
             self.locations[loc_data['name']] = location
         
@@ -244,25 +255,25 @@ class World:
         """Get the current location object"""
         return self.locations.get(self.current_location)
 
-    def get_available_destinations(self) -> List[str]:
-        """Get list of available travel destinations"""
+    def get_available_jumps(self) -> List[str]:
+        """Get list of available sector jumps from current location"""
         current_loc = self.get_current_location()
         if current_loc:
             return current_loc.connections
         return []
 
-    def can_travel_to(self, destination: str) -> bool:
-        """Check if player can travel to destination"""
+    def can_jump_to(self, destination: str) -> bool:
+        """Check if player can jump to destination"""
         current_loc = self.get_current_location()
         if not current_loc:
             return False
         
         return destination in current_loc.connections
 
-    def start_travel(self, destination: str, player) -> Dict:
-        """Start traveling to a destination"""
-        if not self.can_travel_to(destination):
-            return {'success': False, 'message': f'Cannot travel to {destination} from here'}
+    def jump_to_sector(self, destination: str, player) -> Dict:
+        """Jump to a connected sector"""
+        if not self.can_jump_to(destination):
+            return {'success': False, 'message': f'Cannot jump to {destination} from here'}
         
         dest_location = self.locations[destination]
         
@@ -270,22 +281,26 @@ class World:
         if player.fuel < dest_location.fuel_cost:
             return {'success': False, 'message': f'Not enough fuel. Need {dest_location.fuel_cost}, have {player.fuel}'}
         
-        # Start travel
+        # Start jump
         self.is_traveling = True
         self.travel_destination = destination
         self.travel_progress = 0
         self.travel_time = dest_location.travel_time
         self.travel_start_time = time.time()
         
+        # Discover the sector
+        self.discovered_sectors.add(dest_location.sector)
+        
         return {
             'success': True,
-            'message': f'Traveling to {destination}. Estimated time: {dest_location.travel_time} minutes',
+            'message': f'Jumping to {destination} in sector {dest_location.sector}. Estimated time: {dest_location.travel_time} minutes',
             'travel_time': dest_location.travel_time,
-            'fuel_cost': dest_location.fuel_cost
+            'fuel_cost': dest_location.fuel_cost,
+            'sector': dest_location.sector
         }
 
-    def update_travel(self, player) -> Dict:
-        """Update travel progress"""
+    def update_jump(self, player) -> Dict:
+        """Update jump progress"""
         if not self.is_traveling:
             return {'traveling': False}
         
@@ -294,7 +309,7 @@ class World:
         
         if progress >= 100:
             # Arrived at destination
-            self._complete_travel(player)
+            self._complete_jump(player)
             return {
                 'traveling': False,
                 'arrived': True,
@@ -309,16 +324,17 @@ class World:
             'remaining_time': max(0, self.travel_time - elapsed_time)
         }
 
-    def _complete_travel(self, player):
-        """Complete travel to destination"""
+    def _complete_jump(self, player):
+        """Complete jump to destination"""
         dest_location = self.locations[self.travel_destination]
         
         # Consume fuel
         player.use_fuel(dest_location.fuel_cost)
         
-        # Update location
+        # Update location and sector
         self.current_location = self.travel_destination
         self.player_coordinates = dest_location.coordinates
+        self.space_sector = dest_location.sector
         
         # Reset travel state
         self.is_traveling = False
@@ -326,36 +342,52 @@ class World:
         self.travel_progress = 0
         self.travel_time = 0
 
-    def travel_to(self, destination: str) -> bool:
-        """Travel to a destination (instant travel for compatibility)"""
-        if not self.can_travel_to(destination):
+    def instant_jump(self, destination: str) -> bool:
+        """Instant jump to a destination (for warp command)"""
+        if not self.can_jump_to(destination):
             return False
         
-        # Calculate travel distance and fuel cost
-        current_coords = self.get_current_location().coordinates
-        dest_coords = self.locations[destination].coordinates
+        dest_location = self.locations[destination]
         
-        distance = self._calculate_distance(current_coords, dest_coords)
-        fuel_cost = distance // 10  # 1 fuel per 10 distance units
-        
-        # For now, just move instantly
-        # In a full implementation, this would trigger travel mode
+        # Update location and sector
         self.current_location = destination
-        self.player_coordinates = dest_coords
+        self.player_coordinates = dest_location.coordinates
+        self.space_sector = dest_location.sector
+        
+        # Discover the sector
+        self.discovered_sectors.add(dest_location.sector)
         
         return True
 
-    def _calculate_distance(self, coords1: Tuple[int, int, int], coords2: Tuple[int, int, int]) -> int:
-        """Calculate distance between two coordinate sets"""
-        return int(((coords1[0] - coords2[0])**2 + 
-                   (coords1[1] - coords2[1])**2 + 
-                   (coords1[2] - coords2[2])**2)**0.5)
+    def get_sector_info(self, sector_name: str = None) -> Dict:
+        """Get information about a sector"""
+        if sector_name is None:
+            # Return current sector info
+            current_loc = self.get_current_location()
+            if not current_loc:
+                return {'discovered': False}
+            sector_name = current_loc.sector
+        
+        sector_locations = [loc for loc in self.locations.values() if loc.sector == sector_name]
+        
+        if not sector_locations:
+            return {'discovered': False}
+        
+        return {
+            'discovered': sector_name in self.discovered_sectors,
+            'name': sector_name,
+            'locations': [loc.name for loc in sector_locations],
+            'danger_level': max(loc.danger_level for loc in sector_locations),
+            'factions': list(set(loc.faction for loc in sector_locations))
+        }
 
-    def move_player(self, direction: str) -> bool:
-        """Move player within current location (for ground-based movement)"""
-        # This would be used for movement within a location
-        # For now, just return True to indicate movement is possible
-        return True
+    def get_all_sectors(self) -> List[str]:
+        """Get all sectors in the game"""
+        return list(set(loc.sector for loc in self.locations.values()))
+
+    def get_discovered_sectors(self) -> List[str]:
+        """Get discovered sectors"""
+        return list(self.discovered_sectors)
 
     def get_location_description(self) -> str:
         """Get detailed description of current location"""
@@ -363,10 +395,11 @@ class World:
         if not location:
             return "Unknown location"
         
-        desc = f"\n[bold cyan]{location.name}[/bold cyan]\n"
+        desc = f"\n[bold cyan]{location.name}[/bold cyan] - Sector {location.sector}[/bold cyan]\n"
         desc += f"[italic]{location.description}[/italic]\n\n"
         
         desc += f"Type: {location.location_type.title()}\n"
+        desc += f"Sector: {location.sector}\n"
         desc += f"Danger Level: {location.danger_level}/10\n"
         desc += f"Faction: {location.faction}\n"
         
@@ -374,7 +407,7 @@ class World:
             desc += f"Services: {', '.join(location.services)}\n"
         
         if location.connections:
-            desc += f"Connections: {', '.join(location.connections)}\n"
+            desc += f"Connected Sectors: {', '.join(location.connections)}\n"
         
         if location.items:
             desc += f"Items here: {', '.join([item.name for item in location.items])}\n"
@@ -382,9 +415,29 @@ class World:
         return desc
 
     def get_map_display(self) -> str:
-        """Get a visual map of the game world"""
-        map_str = "\n[bold cyan]Space Map[/bold cyan]\n"
-        map_str += "=" * 50 + "\n\n"
+        """Get a visual map of the game world with sectors"""
+        map_str = "\n[bold cyan]Galactic Map - Sector Navigation[/bold cyan]\n"
+        map_str += "=" * 60 + "\n\n"
+        
+        # Show current sector
+        current_loc = self.get_current_location()
+        if current_loc:
+            map_str += f"[bold yellow]Current Sector: {current_loc.sector}[/bold yellow]\n"
+            map_str += f"[bold yellow]Current Location: {current_loc.name}[/bold yellow]\n\n"
+        
+        # Show all sectors
+        all_sectors = self.get_all_sectors()
+        discovered_sectors = self.get_discovered_sectors()
+        
+        map_str += "[bold cyan]Sectors:[/bold cyan]\n"
+        for sector in all_sectors:
+            if sector in discovered_sectors:
+                sector_info = self.get_sector_info(sector_name=sector)
+                map_str += f"  [green]✓ {sector}[/green] - {', '.join(sector_info['locations'])}\n"
+            else:
+                map_str += f"  [dim]? Unknown Sector[/dim]\n"
+        
+        map_str += "\n[bold cyan]Sector Connections:[/bold cyan]\n"
         
         # Create a simple ASCII map
         map_width = self.map_data['width']
@@ -432,12 +485,14 @@ class World:
         map_str += "💎 Asteroid Belt    🏴‍☠️ Pirate Haven   🔬 Deep Space Lab\n"
         map_str += "⭐ Outer Rim        🌌 Nebula Zone\n"
         map_str += "[bold red]Current Location[/bold red]\n"
+        map_str += "[green]✓ Discovered Sectors[/green]\n"
+        map_str += "[dim]? Undiscovered Sectors[/dim]\n"
         
         return map_str
 
-    def get_travel_info(self, destination: str) -> Dict:
-        """Get travel information for a destination"""
-        if not self.can_travel_to(destination):
+    def get_jump_info(self, destination: str) -> Dict:
+        """Get jump information for a destination"""
+        if not self.can_jump_to(destination):
             return {'available': False}
         
         dest_location = self.locations[destination]
@@ -446,6 +501,7 @@ class World:
         return {
             'available': True,
             'destination': destination,
+            'sector': dest_location.sector,
             'fuel_cost': dest_location.fuel_cost,
             'travel_time': dest_location.travel_time,
             'danger_level': dest_location.danger_level,
@@ -503,9 +559,10 @@ class World:
 
     def get_sector_info(self) -> Dict:
         """Get information about current space sector"""
+        current_loc = self.get_current_location()
         return {
-            'name': self.space_sector,
+            'name': current_loc.sector if current_loc else "Unknown",
             'coordinates': self.player_coordinates,
             'weather': self.get_weather_conditions(),
-            'danger_level': self.get_current_location().danger_level if self.get_current_location() else 0
+            'danger_level': current_loc.danger_level if current_loc else 0
         }

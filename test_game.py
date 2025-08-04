@@ -81,14 +81,18 @@ def test_world():
     assert world.current_location == "Earth Station"
     print("✓ Starting location correct")
     
-    # Test travel
-    assert world.travel_to("Mars Colony")
+    # Test sector jumping
+    assert world.instant_jump("Mars Colony")
     assert world.current_location == "Mars Colony"
-    print("✓ Travel system working")
+    print("✓ Sector jumping working")
     
     # Test market system
     assert world.can_trade()
     print("✓ Market system working")
+    
+    # Test sector discovery
+    assert "Beta" in world.discovered_sectors
+    print("✓ Sector discovery working")
     
     print("✓ World tests passed!")
 

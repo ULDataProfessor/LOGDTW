@@ -128,11 +128,13 @@ class Game:
         - inventory, inv (show inventory)
         - look, l (examine current location)
         
-        [bold yellow]Movement & Travel:[/bold yellow]
-        - north, south, east, west (or n, s, e, w)
-        - travel [destination] (space travel)
-        - map (show space map)
-        - warp [destination] (instant travel)
+        [bold yellow]Sector Navigation:[/bold yellow]
+        - jump [destination] (jump to connected sector)
+        - warp [destination] (instant jump)
+        - map (show galactic map)
+        - sectors (show all sectors)
+        - sector (show current sector info)
+        - north, south, east, west (jump in direction)
         
         [bold yellow]Trading & Economy:[/bold yellow]
         - buy [item] [quantity], sell [item] [quantity]
@@ -181,10 +183,11 @@ class Game:
         quick_help = """
 [bold cyan]Quick Commands:[/bold cyan]
 ? - This help    status - Player stats    inv - Inventory
-map - Show map   travel - Space travel    market - Trading
+map - Show map   jump - Sector jumping   market - Trading
 talk - NPCs      holodeck - Entertainment sos - Rescue missions
 stocks - Market  bank - Banking          ship - Ship status
 cargo - Cargo    skills - Skills         help - Full help
+sectors - All sectors  sector - Current sector
         """
         self.console.print(Panel(quick_help, title="Quick Help", border_style="green"))
 
@@ -224,12 +227,12 @@ cargo - Cargo    skills - Skills         help - Full help
             try:
                 # Check if traveling
                 if self.world.is_traveling:
-                    travel_status = self.world.update_travel(self.player)
+                    travel_status = self.world.update_jump(self.player)
                     if travel_status.get('arrived'):
                         self.console.print(f"[green]{travel_status['message']}[/green]")
                         self.display.show_location(self.world.get_current_location())
                     else:
-                        self.console.print(f"[yellow]Traveling to {travel_status['destination']}... {travel_status['progress']:.1f}% complete[/yellow]")
+                        self.console.print(f"[yellow]Jumping to {travel_status['destination']}... {travel_status['progress']:.1f}% complete[/yellow]")
                         time.sleep(1)
                         continue
                 
@@ -254,7 +257,7 @@ cargo - Cargo    skills - Skills         help - Full help
                 self.display.show_location(self.world.get_current_location())
                 self.display.show_status(self.player)
                 
-                # Show available warp ports
+                # Show available sector jumps
                 self._show_warp_ports()
                 
                 # Get player input
@@ -284,11 +287,17 @@ cargo - Cargo    skills - Skills         help - Full help
                 elif command.lower() in ['north', 'n', 'south', 's', 'east', 'e', 'west', 'w']:
                     self.handle_movement(command.lower())
                 
-                elif command.lower().startswith('travel'):
+                elif command.lower().startswith('jump'):
                     self.handle_travel(command)
                 
                 elif command.lower() == 'map':
                     self.console.print(self.world.get_map_display())
+                
+                elif command.lower() == 'sectors':
+                    self.show_sectors()
+                
+                elif command.lower() == 'sector':
+                    self.show_current_sector()
                 
                 elif command.lower().startswith('warp'):
                     self.handle_warp(command)
@@ -380,59 +389,78 @@ cargo - Cargo    skills - Skills         help - Full help
                 self.console.print(f"[yellow]Type 'sos' to view distress signals[/yellow]")
 
     def _show_warp_ports(self):
-        """Show available warp ports"""
+        """Show available sector jumps"""
         current_location = self.world.get_current_location()
         if current_location and hasattr(current_location, 'connections'):
             if current_location.connections:
-                ports_text = "Available warp ports: "
-                for i, port in enumerate(current_location.connections):
+                jumps_text = "Available sector jumps: "
+                for i, jump in enumerate(current_location.connections):
                     if i > 0:
-                        ports_text += ", "
-                    ports_text += f"[{port}]"
-                self.console.print(f"[cyan]{ports_text}[/cyan]")
+                        jumps_text += ", "
+                    jumps_text += f"[{jump}]"
+                self.console.print(f"[cyan]{jumps_text}[/cyan]")
 
     def handle_movement(self, direction):
-        """Handle player movement"""
-        direction_map = {
-            'n': 'north', 's': 'south', 'e': 'east', 'w': 'west',
-            'north': 'north', 'south': 'south', 'east': 'east', 'west': 'west'
+        """Handle player movement (now sector jumping)"""
+        # Convert old directional commands to sector jumping
+        current_location = self.world.get_current_location()
+        if not current_location or not current_location.connections:
+            self.console.print("[red]No connected sectors available for jumping.[/red]")
+            return
+        
+        # Map directions to available jumps (if any)
+        jump_map = {
+            'north': current_location.connections[0] if current_location.connections else None,
+            'south': current_location.connections[1] if len(current_location.connections) > 1 else None,
+            'east': current_location.connections[0] if current_location.connections else None,
+            'west': current_location.connections[1] if len(current_location.connections) > 1 else None,
+            'n': current_location.connections[0] if current_location.connections else None,
+            's': current_location.connections[1] if len(current_location.connections) > 1 else None,
+            'e': current_location.connections[0] if current_location.connections else None,
+            'w': current_location.connections[1] if len(current_location.connections) > 1 else None,
         }
         
-        actual_direction = direction_map.get(direction, direction)
-        success = self.world.move_player(actual_direction)
-        
-        if success:
-            self.console.print(f"[green]You move {actual_direction}.[/green]")
+        destination = jump_map.get(direction)
+        if destination:
+            self.handle_sector_jump(destination)
         else:
-            self.console.print(f"[red]You cannot go {actual_direction} from here.[/red]")
+            self.console.print(f"[red]No sector available in that direction. Use 'jump [sector_name]' to jump to a specific sector.[/red]")
 
-    def handle_travel(self, command):
-        """Handle space travel commands"""
-        parts = command.split()
-        if len(parts) < 2:
-            self.console.print("[red]Usage: travel [destination][/red]")
+    def handle_sector_jump(self, destination: str):
+        """Handle jumping to a specific sector"""
+        jump_info = self.world.get_jump_info(destination)
+        if not jump_info['available']:
+            self.console.print(f"[red]Cannot jump to {destination}.[/red]")
             return
         
-        destination = ' '.join(parts[1:])
+        # Show jump information
+        self.console.print(f"[cyan]Jump Information:[/cyan]")
+        self.console.print(f"Destination: {destination}")
+        self.console.print(f"Sector: {jump_info['sector']}")
+        self.console.print(f"Fuel Cost: {jump_info['fuel_cost']}")
+        self.console.print(f"Jump Time: {jump_info['travel_time']} minutes")
+        self.console.print(f"Danger Level: {jump_info['danger_level']}/10")
+        self.console.print(f"Faction: {jump_info['faction']}")
         
-        # Get travel info
-        travel_info = self.world.get_travel_info(destination)
-        if not travel_info['available']:
-            self.console.print(f"[red]Cannot travel to {destination}.[/red]")
-            return
-        
-        # Show travel information
-        self.display.show_travel_info(travel_info)
-        
-        if Confirm.ask("Do you want to travel there?"):
-            result = self.world.start_travel(destination, self.player)
+        if Confirm.ask("Do you want to jump there?"):
+            result = self.world.jump_to_sector(destination, self.player)
             if result['success']:
                 self.console.print(f"[green]{result['message']}[/green]")
             else:
                 self.console.print(f"[red]{result['message']}[/red]")
 
+    def handle_travel(self, command):
+        """Handle travel commands (now sector jumping)"""
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: jump [destination][/red]")
+            return
+        
+        destination = ' '.join(parts[1:])
+        self.handle_sector_jump(destination)
+
     def handle_warp(self, command):
-        """Handle warp travel commands"""
+        """Handle warp commands (instant sector jumping)"""
         parts = command.split()
         if len(parts) < 2:
             self.console.print("[red]Usage: warp [destination][/red]")
@@ -440,8 +468,8 @@ cargo - Cargo    skills - Skills         help - Full help
         
         destination = ' '.join(parts[1:])
         
-        # Instant travel (warp)
-        if self.world.travel_to(destination):
+        # Instant jump (warp)
+        if self.world.instant_jump(destination):
             self.console.print(f"[green]Warped to {destination}![/green]")
         else:
             self.console.print(f"[red]Cannot warp to {destination}.[/red]")
@@ -758,6 +786,46 @@ cargo - Cargo    skills - Skills         help - Full help
         
         # Combat logic would go here
         self.console.print("[yellow]Combat system not yet implemented.[/yellow]")
+
+    def show_sectors(self):
+        """Show all sectors and their status"""
+        all_sectors = self.world.get_all_sectors()
+        discovered_sectors = self.world.get_discovered_sectors()
+        
+        self.console.print("\n[bold cyan]Galactic Sectors[/bold cyan]")
+        self.console.print("=" * 40)
+        
+        for sector in all_sectors:
+            sector_info = self.world.get_sector_info(sector)
+            if sector in discovered_sectors:
+                self.console.print(f"[green]✓ {sector}[/green]")
+                self.console.print(f"   Locations: {', '.join(sector_info['locations'])}")
+                self.console.print(f"   Danger Level: {sector_info['danger_level']}/10")
+                self.console.print(f"   Factions: {', '.join(sector_info['factions'])}")
+            else:
+                self.console.print(f"[dim]? {sector} (Undiscovered)[/dim]")
+            self.console.print()
+
+    def show_current_sector(self):
+        """Show information about current sector"""
+        current_loc = self.world.get_current_location()
+        if not current_loc:
+            return
+        
+        sector_info = self.world.get_sector_info(current_loc.sector)
+        
+        self.console.print(f"\n[bold cyan]Current Sector: {current_loc.sector}[/bold cyan]")
+        self.console.print("=" * 40)
+        self.console.print(f"Location: {current_loc.name}")
+        self.console.print(f"Type: {current_loc.location_type.title()}")
+        self.console.print(f"Danger Level: {current_loc.danger_level}/10")
+        self.console.print(f"Faction: {current_loc.faction}")
+        
+        if current_loc.connections:
+            self.console.print(f"Connected Sectors: {', '.join(current_loc.connections)}")
+        
+        if current_loc.services:
+            self.console.print(f"Services: {', '.join(current_loc.services)}")
 
     def run(self):
         """Main game run method"""

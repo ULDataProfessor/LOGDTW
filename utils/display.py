@@ -30,28 +30,24 @@ class DisplayManager:
         else:
             self.console.print(title_text)
     
-    def show_location(self, location: Location):
+    def show_location(self, location):
         """Display current location information"""
         if not location:
+            self.console.print("[red]Unknown location[/red]")
             return
         
-        # Create location panel
-        location_text = f"[bold cyan]{location.name}[/bold cyan]\n"
+        location_text = f"[bold cyan]{location.name}[/bold cyan] - Sector {location.sector}\n"
         location_text += f"[italic]{location.description}[/italic]\n\n"
-        
-        # Add location details
-        details = []
-        details.append(f"Type: {location.location_type.title()}")
-        details.append(f"Danger Level: {location.danger_level}/10")
-        details.append(f"Faction: {location.faction}")
+        location_text += f"Type: {location.location_type.title()}\n"
+        location_text += f"Sector: {location.sector}\n"
+        location_text += f"Danger Level: {location.danger_level}/10\n"
+        location_text += f"Faction: {location.faction}\n"
         
         if location.services:
-            details.append(f"Services: {', '.join(location.services)}")
+            location_text += f"Services: {', '.join(location.services)}\n"
         
         if location.connections:
-            details.append(f"Connections: {', '.join(location.connections)}")
-        
-        location_text += "\n".join(details)
+            location_text += f"Connected Sectors: {', '.join(location.connections)}\n"
         
         self.console.print(Panel(location_text, title="Location", border_style="blue"))
     
@@ -153,34 +149,36 @@ class DisplayManager:
             
             self.console.print(equipped_text)
     
-    def show_location_description(self, location: Location):
-        """Show detailed location description"""
+    def show_location_description(self, location):
+        """Display detailed location description"""
         if not location:
+            self.console.print("[red]Unknown location[/red]")
             return
         
-        desc_text = f"[bold cyan]{location.name}[/bold cyan]\n"
+        desc_text = f"[bold cyan]{location.name}[/bold cyan] - Sector {location.sector}\n\n"
         desc_text += f"[italic]{location.description}[/italic]\n\n"
         
-        desc_text += f"Type: {location.location_type.title()}\n"
+        desc_text += f"Location Type: {location.location_type.title()}\n"
+        desc_text += f"Sector: {location.sector}\n"
         desc_text += f"Danger Level: {location.danger_level}/10\n"
         desc_text += f"Faction: {location.faction}\n"
         
         if location.services:
-            desc_text += f"\n[bold yellow]Services:[/bold yellow]\n"
+            desc_text += f"\nAvailable Services:\n"
             for service in location.services:
                 desc_text += f"  • {service.title()}\n"
         
         if location.connections:
-            desc_text += f"\n[bold yellow]Connections:[/bold yellow]\n"
+            desc_text += f"\nConnected Sectors:\n"
             for connection in location.connections:
                 desc_text += f"  • {connection}\n"
         
         if location.items:
-            desc_text += f"\n[bold yellow]Items Here:[/bold yellow]\n"
+            desc_text += f"\nItems Found Here:\n"
             for item in location.items:
                 desc_text += f"  • {item.name} ({item.value} credits)\n"
         
-        self.console.print(Panel(desc_text, title="Location Details", border_style="blue"))
+        self.console.print(Panel(desc_text, title="Location Details", border_style="cyan"))
     
     def show_combat_status(self, combat_data: Dict):
         """Display combat status"""
@@ -254,27 +252,28 @@ class DisplayManager:
             action = "Bought" if trade['type'] == 'buy' else "Sold"
             self.console.print(f"{action} {trade['quantity']} {trade['item']} at {trade['location']} for {trade['amount']} credits")
     
-    def show_travel_info(self, travel_info: Dict):
+    def show_travel_info(self, travel_info):
         """Display travel information"""
         if not travel_info.get('available'):
             self.console.print("[red]Cannot travel to this destination[/red]")
             return
         
-        travel_text = f"[bold cyan]Travel Information[/bold cyan]\n\n"
+        travel_text = f"[bold cyan]Jump Information[/bold cyan]\n\n"
         travel_text += f"Destination: {travel_info['destination']}\n"
+        travel_text += f"Sector: {travel_info['sector']}\n"
         travel_text += f"Fuel Cost: {travel_info['fuel_cost']}\n"
-        travel_text += f"Travel Time: {travel_info['travel_time']} minutes\n"
+        travel_text += f"Jump Time: {travel_info['travel_time']} minutes\n"
         travel_text += f"Danger Level: {travel_info['danger_level']}/10\n"
         travel_text += f"Faction: {travel_info['faction']}\n"
         
         if travel_info.get('services'):
             travel_text += f"\nServices: {', '.join(travel_info['services'])}\n"
         
-        self.console.print(Panel(travel_text, title="Travel Info", border_style="blue"))
+        self.console.print(Panel(travel_text, title="Jump Info", border_style="blue"))
     
     def show_travel_progress(self, progress: float, destination: str, remaining_time: float):
         """Display travel progress"""
-        progress_text = f"[bold yellow]Traveling to {destination}[/bold yellow]\n\n"
+        progress_text = f"[bold yellow]Jumping to {destination}[/bold yellow]\n\n"
         progress_text += f"Progress: {progress:.1f}%\n"
         progress_text += f"Remaining Time: {remaining_time:.1f} minutes\n"
         
@@ -284,7 +283,7 @@ class DisplayManager:
         bar = "█" * filled_length + "░" * (bar_length - filled_length)
         progress_text += f"[{bar}] {progress:.1f}%"
         
-        self.console.print(Panel(progress_text, title="Travel Progress", border_style="yellow"))
+        self.console.print(Panel(progress_text, title="Jump Progress", border_style="yellow"))
     
     def show_quests(self, quests: List):
         """Display available quests"""
@@ -423,3 +422,28 @@ class DisplayManager:
     def clear_screen(self):
         """Clear the console screen"""
         self.console.clear() 
+
+    def show_sector_info(self, sector_info):
+        """Display sector information"""
+        if not sector_info.get('discovered'):
+            self.console.print("[dim]Sector not yet discovered[/dim]")
+            return
+        
+        sector_text = f"[bold cyan]Sector: {sector_info['name']}[/bold cyan]\n\n"
+        sector_text += f"Locations: {', '.join(sector_info['locations'])}\n"
+        sector_text += f"Danger Level: {sector_info['danger_level']}/10\n"
+        sector_text += f"Factions: {', '.join(sector_info['factions'])}\n"
+        
+        self.console.print(Panel(sector_text, title="Sector Information", border_style="green"))
+
+    def show_sector_map(self, sectors, discovered_sectors):
+        """Display a map of all sectors"""
+        map_text = "[bold cyan]Galactic Sector Map[/bold cyan]\n\n"
+        
+        for sector in sectors:
+            if sector in discovered_sectors:
+                map_text += f"[green]✓ {sector}[/green]\n"
+            else:
+                map_text += f"[dim]? {sector} (Undiscovered)[/dim]\n"
+        
+        self.console.print(Panel(map_text, title="Sector Map", border_style="cyan")) 
