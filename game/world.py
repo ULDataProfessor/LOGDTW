@@ -4,6 +4,7 @@ Handles locations, navigation, and space travel
 """
 
 import random
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from game.player import Item
@@ -21,6 +22,8 @@ class Location:
     services: List[str] = None  # trading, repair, fuel, etc.
     danger_level: int = 0  # 0-10 scale
     faction: str = "Neutral"
+    fuel_cost: int = 0  # Fuel cost to travel here
+    travel_time: int = 0  # Travel time in minutes
     
     def __post_init__(self):
         if self.connections is None:
@@ -49,10 +52,14 @@ class World:
         self.travel_destination = None
         self.travel_progress = 0
         self.travel_time = 0
+        self.travel_start_time = 0
         
         # Events and encounters
         self.encounters = []
         self.weather_conditions = "Clear"
+        
+        # Map data
+        self.map_data = self._create_map_data()
         
     def _create_world(self):
         """Create the game world with locations"""
@@ -67,7 +74,9 @@ class World:
                 'connections': ['Mars Colony', 'Luna Base'],
                 'services': ['trading', 'repair', 'fuel', 'missions'],
                 'danger_level': 1,
-                'faction': 'Federation'
+                'faction': 'Federation',
+                'fuel_cost': 0,
+                'travel_time': 0
             },
             {
                 'name': 'Mars Colony',
@@ -77,7 +86,9 @@ class World:
                 'connections': ['Earth Station', 'Asteroid Belt'],
                 'services': ['trading', 'mining', 'fuel'],
                 'danger_level': 3,
-                'faction': 'Federation'
+                'faction': 'Federation',
+                'fuel_cost': 5,
+                'travel_time': 30
             },
             {
                 'name': 'Luna Base',
@@ -87,7 +98,9 @@ class World:
                 'connections': ['Earth Station', 'Deep Space Lab'],
                 'services': ['research', 'trading', 'fuel'],
                 'danger_level': 2,
-                'faction': 'Scientists'
+                'faction': 'Scientists',
+                'fuel_cost': 3,
+                'travel_time': 20
             },
             {
                 'name': 'Asteroid Belt',
@@ -97,7 +110,9 @@ class World:
                 'connections': ['Mars Colony', 'Pirate Haven'],
                 'services': ['mining'],
                 'danger_level': 7,
-                'faction': 'Neutral'
+                'faction': 'Neutral',
+                'fuel_cost': 8,
+                'travel_time': 45
             },
             {
                 'name': 'Pirate Haven',
@@ -107,7 +122,9 @@ class World:
                 'connections': ['Asteroid Belt', 'Outer Rim'],
                 'services': ['trading', 'repair', 'missions'],
                 'danger_level': 9,
-                'faction': 'Pirates'
+                'faction': 'Pirates',
+                'fuel_cost': 10,
+                'travel_time': 60
             },
             {
                 'name': 'Deep Space Lab',
@@ -117,7 +134,9 @@ class World:
                 'connections': ['Luna Base', 'Nebula Zone'],
                 'services': ['research', 'fuel'],
                 'danger_level': 4,
-                'faction': 'Scientists'
+                'faction': 'Scientists',
+                'fuel_cost': 6,
+                'travel_time': 40
             },
             {
                 'name': 'Outer Rim',
@@ -127,7 +146,9 @@ class World:
                 'connections': ['Pirate Haven'],
                 'services': ['exploration'],
                 'danger_level': 10,
-                'faction': 'Neutral'
+                'faction': 'Neutral',
+                'fuel_cost': 15,
+                'travel_time': 90
             },
             {
                 'name': 'Nebula Zone',
@@ -137,7 +158,9 @@ class World:
                 'connections': ['Deep Space Lab'],
                 'services': ['exploration', 'research'],
                 'danger_level': 6,
-                'faction': 'Neutral'
+                'faction': 'Neutral',
+                'fuel_cost': 12,
+                'travel_time': 75
             }
         ]
         
@@ -151,12 +174,40 @@ class World:
                 connections=loc_data['connections'],
                 services=loc_data['services'],
                 danger_level=loc_data['danger_level'],
-                faction=loc_data['faction']
+                faction=loc_data['faction'],
+                fuel_cost=loc_data['fuel_cost'],
+                travel_time=loc_data['travel_time']
             )
             self.locations[loc_data['name']] = location
         
         # Add some items to locations
         self._add_items_to_locations()
+        
+    def _create_map_data(self) -> Dict:
+        """Create map data for visual representation"""
+        return {
+            'width': 25,
+            'height': 15,
+            'locations': {
+                'Earth Station': {'x': 12, 'y': 7, 'symbol': '🌍'},
+                'Mars Colony': {'x': 18, 'y': 7, 'symbol': '🔴'},
+                'Luna Base': {'x': 12, 'y': 3, 'symbol': '🌙'},
+                'Asteroid Belt': {'x': 22, 'y': 7, 'symbol': '💎'},
+                'Pirate Haven': {'x': 24, 'y': 7, 'symbol': '🏴‍☠️'},
+                'Deep Space Lab': {'x': 12, 'y': 1, 'symbol': '🔬'},
+                'Outer Rim': {'x': 24, 'y': 5, 'symbol': '⭐'},
+                'Nebula Zone': {'x': 12, 'y': 0, 'symbol': '🌌'}
+            },
+            'connections': [
+                ('Earth Station', 'Mars Colony'),
+                ('Earth Station', 'Luna Base'),
+                ('Mars Colony', 'Asteroid Belt'),
+                ('Asteroid Belt', 'Pirate Haven'),
+                ('Luna Base', 'Deep Space Lab'),
+                ('Deep Space Lab', 'Nebula Zone'),
+                ('Pirate Haven', 'Outer Rim')
+            ]
+        }
         
     def _add_items_to_locations(self):
         """Add items to various locations"""
@@ -208,8 +259,75 @@ class World:
         
         return destination in current_loc.connections
 
+    def start_travel(self, destination: str, player) -> Dict:
+        """Start traveling to a destination"""
+        if not self.can_travel_to(destination):
+            return {'success': False, 'message': f'Cannot travel to {destination} from here'}
+        
+        dest_location = self.locations[destination]
+        
+        # Check fuel requirements
+        if player.fuel < dest_location.fuel_cost:
+            return {'success': False, 'message': f'Not enough fuel. Need {dest_location.fuel_cost}, have {player.fuel}'}
+        
+        # Start travel
+        self.is_traveling = True
+        self.travel_destination = destination
+        self.travel_progress = 0
+        self.travel_time = dest_location.travel_time
+        self.travel_start_time = time.time()
+        
+        return {
+            'success': True,
+            'message': f'Traveling to {destination}. Estimated time: {dest_location.travel_time} minutes',
+            'travel_time': dest_location.travel_time,
+            'fuel_cost': dest_location.fuel_cost
+        }
+
+    def update_travel(self, player) -> Dict:
+        """Update travel progress"""
+        if not self.is_traveling:
+            return {'traveling': False}
+        
+        elapsed_time = (time.time() - self.travel_start_time) / 60  # Convert to minutes
+        progress = min(100, (elapsed_time / self.travel_time) * 100)
+        
+        if progress >= 100:
+            # Arrived at destination
+            self._complete_travel(player)
+            return {
+                'traveling': False,
+                'arrived': True,
+                'destination': self.travel_destination,
+                'message': f'Arrived at {self.travel_destination}!'
+            }
+        
+        return {
+            'traveling': True,
+            'progress': progress,
+            'destination': self.travel_destination,
+            'remaining_time': max(0, self.travel_time - elapsed_time)
+        }
+
+    def _complete_travel(self, player):
+        """Complete travel to destination"""
+        dest_location = self.locations[self.travel_destination]
+        
+        # Consume fuel
+        player.use_fuel(dest_location.fuel_cost)
+        
+        # Update location
+        self.current_location = self.travel_destination
+        self.player_coordinates = dest_location.coordinates
+        
+        # Reset travel state
+        self.is_traveling = False
+        self.travel_destination = None
+        self.travel_progress = 0
+        self.travel_time = 0
+
     def travel_to(self, destination: str) -> bool:
-        """Travel to a destination"""
+        """Travel to a destination (instant travel for compatibility)"""
         if not self.can_travel_to(destination):
             return False
         
@@ -262,6 +380,78 @@ class World:
             desc += f"Items here: {', '.join([item.name for item in location.items])}\n"
         
         return desc
+
+    def get_map_display(self) -> str:
+        """Get a visual map of the game world"""
+        map_str = "\n[bold cyan]Space Map[/bold cyan]\n"
+        map_str += "=" * 50 + "\n\n"
+        
+        # Create a simple ASCII map
+        map_width = self.map_data['width']
+        map_height = self.map_data['height']
+        
+        # Initialize empty map
+        map_grid = [[' ' for _ in range(map_width)] for _ in range(map_height)]
+        
+        # Add locations
+        for loc_name, loc_data in self.map_data['locations'].items():
+            x, y = loc_data['x'], loc_data['y']
+            if 0 <= x < map_width and 0 <= y < map_height:
+                map_grid[y][x] = loc_data['symbol']
+        
+        # Add connections (simple lines)
+        for conn in self.map_data['connections']:
+            loc1, loc2 = conn
+            if loc1 in self.map_data['locations'] and loc2 in self.map_data['locations']:
+                x1, y1 = self.map_data['locations'][loc1]['x'], self.map_data['locations'][loc1]['y']
+                x2, y2 = self.map_data['locations'][loc2]['x'], self.map_data['locations'][loc2]['y']
+                
+                # Draw simple connection line
+                if x1 == x2:  # Vertical line
+                    for y in range(min(y1, y2) + 1, max(y1, y2)):
+                        if 0 <= y < map_height and 0 <= x1 < map_width:
+                            map_grid[y][x1] = '|'
+                elif y1 == y2:  # Horizontal line
+                    for x in range(min(x1, x2) + 1, max(x1, x2)):
+                        if 0 <= x < map_width and 0 <= y1 < map_height:
+                            map_grid[y1][x] = '-'
+        
+        # Highlight current location
+        current_loc = self.get_current_location()
+        if current_loc and current_loc.name in self.map_data['locations']:
+            x, y = self.map_data['locations'][current_loc.name]['x'], self.map_data['locations'][current_loc.name]['y']
+            if 0 <= x < map_width and 0 <= y < map_height:
+                map_grid[y][x] = f"[bold red]{self.map_data['locations'][current_loc.name]['symbol']}[/bold red]"
+        
+        # Convert grid to string
+        for row in map_grid:
+            map_str += ''.join(row) + '\n'
+        
+        map_str += "\n[bold yellow]Legend:[/bold yellow]\n"
+        map_str += "🌍 Earth Station    🔴 Mars Colony    🌙 Luna Base\n"
+        map_str += "💎 Asteroid Belt    🏴‍☠️ Pirate Haven   🔬 Deep Space Lab\n"
+        map_str += "⭐ Outer Rim        🌌 Nebula Zone\n"
+        map_str += "[bold red]Current Location[/bold red]\n"
+        
+        return map_str
+
+    def get_travel_info(self, destination: str) -> Dict:
+        """Get travel information for a destination"""
+        if not self.can_travel_to(destination):
+            return {'available': False}
+        
+        dest_location = self.locations[destination]
+        current_loc = self.get_current_location()
+        
+        return {
+            'available': True,
+            'destination': destination,
+            'fuel_cost': dest_location.fuel_cost,
+            'travel_time': dest_location.travel_time,
+            'danger_level': dest_location.danger_level,
+            'faction': dest_location.faction,
+            'services': dest_location.services
+        }
 
     def can_trade(self) -> bool:
         """Check if trading is available at current location"""

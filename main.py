@@ -123,10 +123,13 @@ class Game:
         - travel [destination]
         - land, takeoff
         - scan, navigate
+        - map (show space map)
         
         [bold yellow]Trading:[/bold yellow]
         - buy [item], sell [item]
         - trade, market
+        - trade routes (show best routes)
+        - trade history
         
         [bold yellow]System:[/bold yellow]
         - status, stats
@@ -166,6 +169,17 @@ class Game:
         
         while self.running:
             try:
+                # Check if traveling
+                if self.world.is_traveling:
+                    travel_status = self.world.update_travel(self.player)
+                    if travel_status.get('arrived'):
+                        self.console.print(f"[green]{travel_status['message']}[/green]")
+                        self.display.show_location(self.world.get_current_location())
+                    else:
+                        self.console.print(f"[yellow]Traveling to {travel_status['destination']}... {travel_status['progress']:.1f}% complete[/yellow]")
+                        time.sleep(1)
+                        continue
+                
                 # Display current location and status
                 self.display.show_location(self.world.get_current_location())
                 self.display.show_status(self.player)
@@ -197,14 +211,26 @@ class Game:
                 elif command.lower().startswith('travel'):
                     self.handle_travel(command)
                 
-                elif command.lower().startswith('attack'):
-                    self.handle_combat(command)
+                elif command.lower() == 'map':
+                    self.console.print(self.world.get_map_display())
                 
                 elif command.lower().startswith('buy') or command.lower().startswith('sell'):
                     self.handle_trading(command)
                 
+                elif command.lower() == 'market':
+                    self.show_market_info()
+                
+                elif command.lower() == 'trade routes':
+                    self.show_trade_routes()
+                
+                elif command.lower() == 'trade history':
+                    self.show_trade_history()
+                
+                elif command.lower().startswith('attack'):
+                    self.handle_combat(command)
+                
                 elif command.lower() in ['quests', 'missions']:
-                    self.display.show_quests(self.quest_system.get_available_quests())
+                    self.display.show_quests(self.quest_system.get_available_quests(self.player))
                 
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")
@@ -240,12 +266,99 @@ class Game:
             return
         
         destination = ' '.join(parts[1:])
-        success = self.world.travel_to(destination)
         
-        if success:
-            self.console.print(f"[green]Traveling to {destination}...[/green]")
-        else:
+        # Get travel info
+        travel_info = self.world.get_travel_info(destination)
+        if not travel_info['available']:
             self.console.print(f"[red]Cannot travel to {destination}.[/red]")
+            return
+        
+        # Show travel information
+        self.console.print(f"[cyan]Travel Information:[/cyan]")
+        self.console.print(f"Destination: {destination}")
+        self.console.print(f"Fuel Cost: {travel_info['fuel_cost']}")
+        self.console.print(f"Travel Time: {travel_info['travel_time']} minutes")
+        self.console.print(f"Danger Level: {travel_info['danger_level']}/10")
+        self.console.print(f"Faction: {travel_info['faction']}")
+        
+        if Confirm.ask("Do you want to travel there?"):
+            result = self.world.start_travel(destination, self.player)
+            if result['success']:
+                self.console.print(f"[green]{result['message']}[/green]")
+            else:
+                self.console.print(f"[red]{result['message']}[/red]")
+
+    def handle_trading(self, command):
+        """Handle trading commands"""
+        if not self.world.can_trade():
+            self.console.print("[red]No trading available here.[/red]")
+            return
+        
+        parts = command.split()
+        if len(parts) < 2:
+            self.console.print("[red]Usage: buy/sell [item] [quantity][/red]")
+            return
+        
+        action = parts[0].lower()
+        item_name = parts[1]
+        quantity = int(parts[2]) if len(parts) > 2 else 1
+        
+        current_location = self.world.get_current_location().name
+        
+        if action == 'buy':
+            result = self.trading_system.buy_item(self.player, current_location, item_name, quantity)
+        elif action == 'sell':
+            result = self.trading_system.sell_item(self.player, current_location, item_name, quantity)
+        else:
+            self.console.print("[red]Invalid trading command.[/red]")
+            return
+        
+        if result['success']:
+            self.console.print(f"[green]{result['message']}[/green]")
+        else:
+            self.console.print(f"[red]{result['message']}[/red]")
+
+    def show_market_info(self):
+        """Show market information"""
+        current_location = self.world.get_current_location().name
+        market_info = self.trading_system.get_market_info(current_location)
+        
+        if market_info['available']:
+            self.display.show_market_info(market_info)
+        else:
+            self.console.print("[red]No market available here.[/red]")
+
+    def show_trade_routes(self):
+        """Show best trade routes"""
+        routes = self.trading_system.get_best_trade_routes(self.player)
+        
+        if not routes:
+            self.console.print("[yellow]No profitable trade routes found.[/yellow]")
+            return
+        
+        self.console.print("\n[bold cyan]Best Trade Routes[/bold cyan]")
+        self.console.print("=" * 50)
+        
+        for i, route in enumerate(routes, 1):
+            self.console.print(f"\n[bold yellow]{i}. {route['item']}[/bold yellow]")
+            self.console.print(f"   Buy at {route['buy_location']}: {route['buy_price']} credits")
+            self.console.print(f"   Sell at {route['sell_location']}: {route['sell_price']} credits")
+            self.console.print(f"   Profit: {route['profit']} credits ({route['profit_margin']:.1f}%)")
+
+    def show_trade_history(self):
+        """Show trade history"""
+        history = self.trading_system.get_trade_history()
+        
+        if not history:
+            self.console.print("[yellow]No trade history available.[/yellow]")
+            return
+        
+        self.console.print("\n[bold cyan]Recent Trade History[/bold cyan]")
+        self.console.print("=" * 50)
+        
+        for trade in history:
+            action = "Bought" if trade['type'] == 'buy' else "Sold"
+            self.console.print(f"{action} {trade['quantity']} {trade['item']} at {trade['location']} for {trade['amount']} credits")
 
     def handle_combat(self, command):
         """Handle combat commands"""
@@ -255,15 +368,6 @@ class Game:
         
         # Combat logic would go here
         self.console.print("[yellow]Combat system not yet implemented.[/yellow]")
-
-    def handle_trading(self, command):
-        """Handle trading commands"""
-        if not self.world.can_trade():
-            self.console.print("[red]No trading available here.[/red]")
-            return
-        
-        # Trading logic would go here
-        self.console.print("[yellow]Trading system not yet implemented.[/yellow]")
 
     def run(self):
         """Main game run method"""

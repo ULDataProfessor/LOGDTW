@@ -217,7 +217,9 @@ class DisplayManager:
         
         market_text = f"[bold cyan]Market Information[/bold cyan]\n\n"
         market_text += f"Specialization: {market_data['specialization'].title()}\n"
-        market_text += f"Price Modifier: {market_data['price_modifier']:.1f}x\n\n"
+        market_text += f"Price Modifier: {market_data['price_modifier']:.1f}x\n"
+        market_text += f"Trade Volume: {market_data['trade_volume'].title()}\n"
+        market_text += f"Security: {market_data['security'].title()}\n\n"
         
         market_text += "[bold yellow]Available Goods:[/bold yellow]\n"
         for good in market_data['goods']:
@@ -225,6 +227,64 @@ class DisplayManager:
             market_text += f"    {good['description']}\n"
         
         self.console.print(Panel(market_text, title="Market", border_style="green"))
+    
+    def show_trade_opportunities(self, opportunities: List[Dict]):
+        """Display trade opportunities"""
+        if not opportunities:
+            self.console.print("[dim]No trade opportunities available[/dim]")
+            return
+        
+        self.console.print("\n[bold cyan]Trade Opportunities[/bold cyan]")
+        self.console.print("=" * 50)
+        
+        for i, opp in enumerate(opportunities, 1):
+            action = "Buy" if opp['type'] == 'buy' else "Sell"
+            self.console.print(f"{i}. {action} {opp['item']} for {opp['price']} credits")
+    
+    def show_trade_history(self, history: List[Dict]):
+        """Display trade history"""
+        if not history:
+            self.console.print("[dim]No trade history available[/dim]")
+            return
+        
+        self.console.print("\n[bold cyan]Trade History[/bold cyan]")
+        self.console.print("=" * 50)
+        
+        for trade in history:
+            action = "Bought" if trade['type'] == 'buy' else "Sold"
+            self.console.print(f"{action} {trade['quantity']} {trade['item']} at {trade['location']} for {trade['amount']} credits")
+    
+    def show_travel_info(self, travel_info: Dict):
+        """Display travel information"""
+        if not travel_info.get('available'):
+            self.console.print("[red]Cannot travel to this destination[/red]")
+            return
+        
+        travel_text = f"[bold cyan]Travel Information[/bold cyan]\n\n"
+        travel_text += f"Destination: {travel_info['destination']}\n"
+        travel_text += f"Fuel Cost: {travel_info['fuel_cost']}\n"
+        travel_text += f"Travel Time: {travel_info['travel_time']} minutes\n"
+        travel_text += f"Danger Level: {travel_info['danger_level']}/10\n"
+        travel_text += f"Faction: {travel_info['faction']}\n"
+        
+        if travel_info.get('services'):
+            travel_text += f"\nServices: {', '.join(travel_info['services'])}\n"
+        
+        self.console.print(Panel(travel_text, title="Travel Info", border_style="blue"))
+    
+    def show_travel_progress(self, progress: float, destination: str, remaining_time: float):
+        """Display travel progress"""
+        progress_text = f"[bold yellow]Traveling to {destination}[/bold yellow]\n\n"
+        progress_text += f"Progress: {progress:.1f}%\n"
+        progress_text += f"Remaining Time: {remaining_time:.1f} minutes\n"
+        
+        # Create a simple progress bar
+        bar_length = 30
+        filled_length = int(bar_length * progress / 100)
+        bar = "█" * filled_length + "░" * (bar_length - filled_length)
+        progress_text += f"[{bar}] {progress:.1f}%"
+        
+        self.console.print(Panel(progress_text, title="Travel Progress", border_style="yellow"))
     
     def show_quests(self, quests: List):
         """Display available quests"""
@@ -276,10 +336,13 @@ class DisplayManager:
 • travel [destination]
 • land, takeoff
 • scan, navigate
+• map (show space map)
 
 [bold yellow]Trading:[/bold yellow]
 • buy [item], sell [item]
 • trade, market
+• trade routes (show best routes)
+• trade history
 
 [bold yellow]System:[/bold yellow]
 • status, stats
