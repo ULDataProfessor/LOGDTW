@@ -1,0 +1,179 @@
+{
+  "weapons": [
+    {
+      "name": "Laser Pistol",
+      "description": "A basic energy weapon",
+      "value": 50,
+      "damage": 15,
+      "item_type": "weapon"
+    },
+    {
+      "name": "Plasma Rifle",
+      "description": "Advanced energy weapon with high damage",
+      "value": 200,
+      "damage": 35,
+      "item_type": "weapon"
+    },
+    {
+      "name": "Particle Cannon",
+      "description": "Heavy weapon with devastating power",
+      "value": 500,
+      "damage": 60,
+      "item_type": "weapon"
+    },
+    {
+      "name": "Mining Laser",
+      "description": "Industrial cutting tool",
+      "value": 150,
+      "damage": 25,
+      "item_type": "weapon"
+    },
+    {
+      "name": "Pirate Blade",
+      "description": "Deadly melee weapon",
+      "value": 120,
+      "damage": 30,
+      "item_type": "weapon"
+    }
+  ],
+  "armor": [
+    {
+      "name": "Light Armor",
+      "description": "Basic protective gear",
+      "value": 30,
+      "defense": 5,
+      "item_type": "armor"
+    },
+    {
+      "name": "Combat Armor",
+      "description": "Military-grade protection",
+      "value": 150,
+      "defense": 15,
+      "item_type": "armor"
+    },
+    {
+      "name": "Energy Shield",
+      "description": "Personal protective field",
+      "value": 200,
+      "defense": 10,
+      "item_type": "shield"
+    },
+    {
+      "name": "Quantum Shield",
+      "description": "Advanced defensive technology",
+      "value": 400,
+      "defense": 20,
+      "item_type": "shield"
+    }
+  ],
+  "consumables": [
+    {
+      "name": "Med Kit",
+      "description": "Restores health",
+      "value": 25,
+      "item_type": "consumable"
+    },
+    {
+      "name": "Advanced Med Kit",
+      "description": "High-quality medical supplies",
+      "value": 100,
+      "item_type": "consumable"
+    },
+    {
+      "name": "Energy Cell",
+      "description": "Power source for weapons",
+      "value": 10,
+      "item_type": "consumable"
+    },
+    {
+      "name": "Stimulants",
+      "description": "Performance enhancers",
+      "value": 200,
+      "item_type": "consumable"
+    }
+  ],
+  "equipment": [
+    {
+      "name": "Repair Kit",
+      "description": "Fixes ship damage",
+      "value": 40,
+      "item_type": "equipment"
+    },
+    {
+      "name": "Navigation Computer",
+      "description": "Helps with space travel",
+      "value": 100,
+      "item_type": "equipment"
+    },
+    {
+      "name": "Quantum Scanner",
+      "description": "Advanced detection device",
+      "value": 400,
+      "item_type": "equipment"
+    },
+    {
+      "name": "Dust Filter",
+      "description": "Protection from Martian dust",
+      "value": 30,
+      "item_type": "equipment"
+    }
+  ],
+  "trade_goods": [
+    {
+      "name": "Iron Ore",
+      "description": "Basic industrial metal",
+      "value": 10,
+      "item_type": "trade_good",
+      "category": "minerals"
+    },
+    {
+      "name": "Gold",
+      "description": "Precious metal",
+      "value": 100,
+      "item_type": "trade_good",
+      "category": "minerals"
+    },
+    {
+      "name": "Platinum",
+      "description": "Rare industrial metal",
+      "value": 200,
+      "item_type": "trade_good",
+      "category": "minerals"
+    },
+    {
+      "name": "Computer Chips",
+      "description": "Electronic components",
+      "value": 50,
+      "item_type": "trade_good",
+      "category": "technology"
+    },
+    {
+      "name": "Quantum Processors",
+      "description": "Advanced computing technology",
+      "value": 1000,
+      "item_type": "trade_good",
+      "category": "technology"
+    },
+    {
+      "name": "Space Wine",
+      "description": "Fine alcoholic beverage",
+      "value": 150,
+      "item_type": "trade_good",
+      "category": "luxury"
+    },
+    {
+      "name": "Alien Artifacts",
+      "description": "Mysterious alien objects",
+      "value": 800,
+      "item_type": "trade_good",
+      "category": "luxury"
+    },
+    {
+      "name": "Research Data",
+      "description": "Valuable scientific information",
+      "value": 500,
+      "item_type": "trade_good",
+      "category": "technology"
+    }
+  ]
+} 
