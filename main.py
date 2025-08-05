@@ -589,16 +589,14 @@ sectors - All sectors  sector - Current sector
                         return
                     
                     # Proceed with warp
-                    destination = None
-                    for loc in self.world.locations.values():
-                        if loc.sector == sector_number:
-                            destination = loc.name
-                            break
+                    result = self.world.jump_to_sector(sector_number, self.player)
                     
-                    if destination and self.world.instant_jump(destination):
-                        self.console.print(f"[green]Warped to Sector {sector_number} ({destination})![/green]")
+                    if result['success']:
+                        # Complete the jump immediately (warp)
+                        self.world._complete_jump(self.player)
+                        self.console.print(f"[green]Warped to Sector {sector_number}![/green]")
                     else:
-                        self.console.print(f"[red]Cannot warp to Sector {sector_number}.[/red]")
+                        self.console.print(f"[red]{result['message']}[/red]")
                 else:
                     self.console.print(f"[red]No connection found to Sector {sector_number}[/red]")
             else:
