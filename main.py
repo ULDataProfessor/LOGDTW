@@ -132,11 +132,12 @@ class Game:
         - look, l (examine current location)
         
         [bold yellow]TW2002 Sector Navigation:[/bold yellow]
-        - jump [sector_number] (jump to connected sector)
-        - warp [sector_number] (instant jump)
+        - jump [sector_number] (jump to connected sector with confirmation)
+        - warp [sector_number] (instant jump with confirmation)
         - map (show galactic map)
         - sectors (show all sectors)
         - sector (show current sector info)
+        - Travel estimates show fuel cost, time, danger level, and faction
         - Connected sectors shown with types: Federation, Neutral, Enemy, Hop, Skip, Warp
         
         [bold yellow]Trading & Economy:[/bold yellow]
@@ -504,12 +505,47 @@ sectors - All sectors  sector - Current sector
         
         try:
             sector_number = int(parts[1])
-            result = self.world.jump_to_sector(sector_number, self.player)
             
-            if result['success']:
-                self.console.print(f"[green]{result['message']}[/green]")
+            # Get travel estimate first
+            if self.world.can_jump_to_sector(sector_number):
+                # Find the connection details
+                connection = None
+                for conn in self.world.sector_connections[self.world.current_sector]:
+                    if conn.destination_sector == sector_number:
+                        connection = conn
+                        break
+                
+                if connection:
+                    # Show travel estimate
+                    self.console.print(f"\n[bold cyan]Travel Estimate to Sector {sector_number}:[/bold cyan]")
+                    self.console.print(f"  Connection Type: {connection.connection_type.upper()}")
+                    self.console.print(f"  Fuel Cost: {connection.fuel_cost}")
+                    self.console.print(f"  Travel Time: {connection.travel_time} minutes")
+                    self.console.print(f"  Danger Level: {connection.danger_level}/10")
+                    self.console.print(f"  Faction: {self.world.sector_factions.get(sector_number, 'Unknown')}")
+                    
+                    # Check if player has enough fuel
+                    if self.player.fuel < connection.fuel_cost:
+                        self.console.print(f"\n[red]Insufficient fuel! You need {connection.fuel_cost} fuel but only have {self.player.fuel}.[/red]")
+                        return
+                    
+                    # Ask for confirmation
+                    self.console.print(f"\n[yellow]Are you sure you want to commit {connection.travel_time} minutes to travel to Sector {sector_number}?[/yellow]")
+                    if not Confirm.ask("Proceed with jump?"):
+                        self.console.print("[yellow]Jump cancelled.[/yellow]")
+                        return
+                    
+                    # Proceed with jump
+                    result = self.world.jump_to_sector(sector_number, self.player)
+                    
+                    if result['success']:
+                        self.console.print(f"[green]{result['message']}[/green]")
+                    else:
+                        self.console.print(f"[red]{result['message']}[/red]")
+                else:
+                    self.console.print(f"[red]No connection found to Sector {sector_number}[/red]")
             else:
-                self.console.print(f"[red]{result['message']}[/red]")
+                self.console.print(f"[red]Cannot jump to Sector {sector_number} from current location[/red]")
         except ValueError:
             self.console.print("[red]Sector number must be a number (e.g., 'jump 2')[/red]")
 
@@ -517,16 +553,58 @@ sectors - All sectors  sector - Current sector
         """Handle warp commands (instant sector jumping)"""
         parts = command.split()
         if len(parts) < 2:
-            self.console.print("[red]Usage: warp [destination][/red]")
+            self.console.print("[red]Usage: warp [sector_number][/red]")
             return
         
-        destination = ' '.join(parts[1:])
-        
-        # Instant jump (warp)
-        if self.world.instant_jump(destination):
-            self.console.print(f"[green]Warped to {destination}![/green]")
-        else:
-            self.console.print(f"[red]Cannot warp to {destination}.[/red]")
+        try:
+            sector_number = int(parts[1])
+            
+            # Get travel estimate first
+            if self.world.can_jump_to_sector(sector_number):
+                # Find the connection details
+                connection = None
+                for conn in self.world.sector_connections[self.world.current_sector]:
+                    if conn.destination_sector == sector_number:
+                        connection = conn
+                        break
+                
+                if connection:
+                    # Show warp estimate
+                    self.console.print(f"\n[bold cyan]Warp Estimate to Sector {sector_number}:[/bold cyan]")
+                    self.console.print(f"  Connection Type: {connection.connection_type.upper()}")
+                    self.console.print(f"  Fuel Cost: {connection.fuel_cost} (instant travel)")
+                    self.console.print(f"  Travel Time: Instant")
+                    self.console.print(f"  Danger Level: {connection.danger_level}/10")
+                    self.console.print(f"  Faction: {self.world.sector_factions.get(sector_number, 'Unknown')}")
+                    
+                    # Check if player has enough fuel
+                    if self.player.fuel < connection.fuel_cost:
+                        self.console.print(f"\n[red]Insufficient fuel! You need {connection.fuel_cost} fuel but only have {self.player.fuel}.[/red]")
+                        return
+                    
+                    # Ask for confirmation
+                    self.console.print(f"\n[yellow]Are you sure you want to warp to Sector {sector_number}?[/yellow]")
+                    if not Confirm.ask("Proceed with warp?"):
+                        self.console.print("[yellow]Warp cancelled.[/yellow]")
+                        return
+                    
+                    # Proceed with warp
+                    destination = None
+                    for loc in self.world.locations.values():
+                        if loc.sector == sector_number:
+                            destination = loc.name
+                            break
+                    
+                    if destination and self.world.instant_jump(destination):
+                        self.console.print(f"[green]Warped to Sector {sector_number} ({destination})![/green]")
+                    else:
+                        self.console.print(f"[red]Cannot warp to Sector {sector_number}.[/red]")
+                else:
+                    self.console.print(f"[red]No connection found to Sector {sector_number}[/red]")
+            else:
+                self.console.print(f"[red]Cannot warp to Sector {sector_number} from current location[/red]")
+        except ValueError:
+            self.console.print("[red]Sector number must be a number (e.g., 'warp 2')[/red]")
 
     def handle_trading(self, command):
         """Handle trading commands"""
