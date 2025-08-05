@@ -131,13 +131,13 @@ class Game:
         - inventory, inv (show inventory)
         - look, l (examine current location)
         
-        [bold yellow]Sector Navigation:[/bold yellow]
-        - jump [destination] (jump to connected sector)
-        - warp [destination] (instant jump)
+        [bold yellow]TW2002 Sector Navigation:[/bold yellow]
+        - jump [sector_number] (jump to connected sector)
+        - warp [sector_number] (instant jump)
         - map (show galactic map)
         - sectors (show all sectors)
         - sector (show current sector info)
-        - north, south, east, west (jump in direction)
+        - Connected sectors shown with types: Federation, Neutral, Enemy, Hop, Skip, Warp
         
         [bold yellow]Trading & Economy:[/bold yellow]
         - buy [item] [quantity], sell [item] [quantity]
@@ -287,7 +287,7 @@ sectors - All sectors  sector - Current sector
                 # Display current location and status
                 self.display.show_location(self.world.get_current_location())
                 self.display.show_status(self.player)
-                self.display.show_adjacent_sectors(self.world)
+                self.display.show_tw2002_sector_display(self.world)
                 self.display.show_space_instructions(self.world)
                 
                 # Get player input
@@ -499,11 +499,19 @@ sectors - All sectors  sector - Current sector
         """Handle travel commands (now sector jumping)"""
         parts = command.split()
         if len(parts) < 2:
-            self.console.print("[red]Usage: jump [destination][/red]")
+            self.console.print("[red]Usage: jump [sector_number][/red]")
             return
         
-        destination = ' '.join(parts[1:])
-        self.handle_sector_jump(destination)
+        try:
+            sector_number = int(parts[1])
+            result = self.world.jump_to_sector(sector_number, self.player)
+            
+            if result['success']:
+                self.console.print(f"[green]{result['message']}[/green]")
+            else:
+                self.console.print(f"[red]{result['message']}[/red]")
+        except ValueError:
+            self.console.print("[red]Sector number must be a number (e.g., 'jump 2')[/red]")
 
     def handle_warp(self, command):
         """Handle warp commands (instant sector jumping)"""

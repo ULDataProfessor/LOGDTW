@@ -44,16 +44,6 @@ class SectorConnection:
     fuel_cost: int
     travel_time: int
     danger_level: int = 0
-    
-    def __post_init__(self):
-        if self.connections is None:
-            self.connections = []
-        if self.items is None:
-            self.items = []
-        if self.npcs is None:
-            self.npcs = []
-        if self.services is None:
-            self.services = []
 
 class PlanetSurface:
     """Represents a planetary surface for ground movement"""
@@ -563,26 +553,43 @@ class World:
         
         return True
 
-    def get_sector_info(self, sector_name: str = None) -> Dict:
-        """Get information about a sector"""
-        if sector_name is None:
-            # Return current sector info
-            current_loc = self.get_current_location()
-            if not current_loc:
-                return {'discovered': False}
-            sector_name = current_loc.sector
+    def get_current_sector_display(self) -> Dict:
+        """Get current sector information for TW2002-style display"""
+        current_loc = self.get_current_location()
+        if not current_loc:
+            return {'error': 'No current location'}
         
-        sector_locations = [loc for loc in self.locations.values() if loc.sector == sector_name]
+        sector_number = self.current_sector
+        faction = self.sector_factions.get(sector_number, "Unknown")
         
-        if not sector_locations:
-            return {'discovered': False}
+        # Get available connections
+        available_connections = self.get_available_jumps()
         
         return {
-            'discovered': sector_name in self.discovered_sectors,
-            'name': sector_name,
+            'sector': sector_number,
+            'location': current_loc.name,
+            'faction': faction,
+            'connections': available_connections,
+            'discovered': sector_number in self.discovered_sectors
+        }
+    
+    def get_sector_info(self, sector_number: int = None) -> Dict:
+        """Get information about a sector"""
+        if sector_number is None:
+            # Return current sector info
+            sector_number = self.current_sector
+        
+        sector_locations = [loc for loc in self.locations.values() if loc.sector == sector_number]
+        
+        if not sector_locations:
+            return {'discovered': False, 'sector': sector_number}
+        
+        return {
+            'discovered': sector_number in self.discovered_sectors,
+            'sector': sector_number,
             'locations': [loc.name for loc in sector_locations],
             'danger_level': max(loc.danger_level for loc in sector_locations),
-            'factions': list(set(loc.faction for loc in sector_locations))
+            'faction': self.sector_factions.get(sector_number, "Unknown")
         }
 
     def get_all_sectors(self) -> List[str]:

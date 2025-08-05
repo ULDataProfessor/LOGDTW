@@ -485,4 +485,52 @@ class DisplayManager:
         if adj:
             adj_text = "[bold cyan]You can move:[/bold cyan] " + ', '.join([dir.title() for dir in adj.keys()])
             self.console.print(adj_text)
-        self.console.print("[yellow]Use n/s/e/w to move, 'leave' or 'orbit' to return to space. Type 'look' to examine area.[/yellow]") 
+        self.console.print("[yellow]Use n/s/e/w to move, 'leave' or 'orbit' to return to space. Type 'look' to examine area.[/yellow]")
+    
+    def show_tw2002_sector_display(self, world):
+        """Display TW2002-style sector information"""
+        sector_display = world.get_current_sector_display()
+        
+        if 'error' in sector_display:
+            self.console.print(f"[red]{sector_display['error']}[/red]")
+            return
+        
+        # Create the main sector display
+        sector_text = f"\n[bold cyan]SECTOR {sector_display['sector']}[/bold cyan]\n"
+        sector_text += f"[bold yellow]Location:[/bold yellow] {sector_display['location']}\n"
+        sector_text += f"[bold yellow]Faction:[/bold yellow] {sector_display['faction']}\n"
+        sector_text += f"[bold yellow]Status:[/bold yellow] {'Discovered' if sector_display['discovered'] else 'Unexplored'}\n\n"
+        
+        # Show connected sectors with types
+        if sector_display['connections']:
+            sector_text += "[bold yellow]Connected Sectors:[/bold yellow]\n"
+            for conn in sector_display['connections']:
+                # Color code based on connection type
+                if conn['type'] == 'federation':
+                    type_color = "green"
+                    type_symbol = "🟢"
+                elif conn['type'] == 'neutral':
+                    type_color = "yellow"
+                    type_symbol = "🟡"
+                elif conn['type'] == 'enemy':
+                    type_color = "red"
+                    type_symbol = "🔴"
+                elif conn['type'] == 'hop':
+                    type_color = "cyan"
+                    type_symbol = "🔵"
+                elif conn['type'] == 'skip':
+                    type_color = "magenta"
+                    type_symbol = "🟣"
+                elif conn['type'] == 'warp':
+                    type_color = "blue"
+                    type_symbol = "🔷"
+                else:
+                    type_color = "white"
+                    type_symbol = "⚪"
+                
+                sector_text += f"  {type_symbol} Sector {conn['sector']} ({conn['type'].upper()}) - {conn['faction']}\n"
+                sector_text += f"     Fuel: {conn['fuel_cost']}, Time: {conn['travel_time']}min, Danger: {conn['danger_level']}/10\n"
+        else:
+            sector_text += "[dim]No connected sectors[/dim]\n"
+        
+        self.console.print(Panel(sector_text, title="TW2002 Navigation", border_style="cyan")) 
