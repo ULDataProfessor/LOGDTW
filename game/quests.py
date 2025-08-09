@@ -164,6 +164,7 @@ class QuestSystem:
                     return False
             elif req_type.endswith('_skill'):
                 skill_name = req_type.replace('_skill', '')
+                # Use player's get_skill_level accessor
                 if player.get_skill_level(skill_name) < req_value:
                     return False
         
@@ -231,7 +232,7 @@ class QuestSystem:
         """Give quest rewards to player"""
         rewards_given = {}
         
-        # Experience
+        # Experience using player.add_experience wrapper
         if 'experience' in quest.rewards:
             exp_gained = quest.rewards['experience']
             leveled_up = player.add_experience(exp_gained)
