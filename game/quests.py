@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 from game.player import Player, Item
+from game.enhanced_missions import MissionGenerator, MissionDifficulty
 
 @dataclass
 class Quest:
@@ -23,6 +24,9 @@ class Quest:
     time_limit: Optional[int] = None  # in game days
     faction: str = "Neutral"
     status: str = "available"  # available, active, completed, failed
+    next_quest: Optional[str] = None
+    branching_paths: Dict[str, str] = None
+    chain_id: Optional[str] = None
     
     def __post_init__(self):
         if self.requirements is None:
@@ -31,6 +35,8 @@ class Quest:
             self.objectives = []
         if self.rewards is None:
             self.rewards = {}
+        if self.branching_paths is None:
+            self.branching_paths = {}
 
 class QuestSystem:
     """Handles quests and missions"""
@@ -40,9 +46,66 @@ class QuestSystem:
         self.active_quests = {}
         self.completed_quests = {}
         self.failed_quests = {}
+        self.mission_generator = MissionGenerator()
         
         # Initialize quests
         self._create_quests()
+
+    def generate_dynamic_quest(self, player: Player) -> Quest:
+        """Generate a dynamic quest using the MissionGenerator"""
+        mission = self.mission_generator.generate_mission(
+            player_level=player.level,
+            player_location=player.coordinates[0] if isinstance(player.coordinates, tuple) else player.coordinates,
+            player_reputation=player.reputation
+        )
+
+        difficulty_map = {
+            MissionDifficulty.TRIVIAL: 1,
+            MissionDifficulty.EASY: 2,
+            MissionDifficulty.NORMAL: 4,
+            MissionDifficulty.HARD: 6,
+            MissionDifficulty.EXTREME: 8,
+            MissionDifficulty.LEGENDARY: 10,
+        }
+
+        rewards = {}
+        if mission.rewards.experience:
+            rewards['experience'] = mission.rewards.experience
+        if mission.rewards.credits:
+            rewards['credits'] = mission.rewards.credits
+        if mission.rewards.reputation:
+            rewards['reputation'] = mission.rewards.reputation
+        if mission.rewards.items:
+            rewards['items'] = [
+                {
+                    'name': item_name,
+                    'description': item_name,
+                    'value': 0,
+                    'type': 'special'
+                }
+                for item_name in mission.rewards.items
+            ]
+
+        quest = Quest(
+            id=mission.id,
+            name=mission.title,
+            description=mission.description,
+            quest_type=mission.type.value,
+            location=f"Sector {mission.sector_id}" if mission.sector_id is not None else "Unknown",
+            requirements={},
+            objectives=[obj.description for obj in mission.objectives],
+            rewards=rewards,
+            difficulty=difficulty_map.get(mission.difficulty, 1),
+            time_limit=mission.time_limit,
+            faction=mission.faction or 'Neutral',
+            status=mission.status.value,
+            next_quest=mission.next_mission,
+            branching_paths=mission.branching_paths,
+            chain_id=mission.chain_id
+        )
+
+        self.available_quests[quest.id] = quest
+        return quest
     
     def _create_quests(self):
         """Create available quests"""
@@ -205,11 +268,13 @@ class QuestSystem:
         quest.status = "completed"
         self.completed_quests[quest_id] = quest
         del self.active_quests[quest_id]
-        
+
         return {
             'success': True,
             'message': f'Quest completed: {quest.name}',
-            'rewards': rewards_given
+            'rewards': rewards_given,
+            'next_quest': quest.next_quest,
+            'branching_paths': quest.branching_paths
         }
     
     def fail_quest(self, quest_id: str) -> Dict:
@@ -221,10 +286,12 @@ class QuestSystem:
         quest.status = "failed"
         self.failed_quests[quest_id] = quest
         del self.active_quests[quest_id]
-        
+
         return {
             'success': True,
-            'message': f'Quest failed: {quest.name}'
+            'message': f'Quest failed: {quest.name}',
+            'next_quest': quest.next_quest,
+            'branching_paths': quest.branching_paths
         }
     
     def _give_rewards(self, player: Player, quest: Quest) -> Dict:
@@ -401,4 +468,4 @@ class QuestSystem:
             objectives=['Mine resources'],
             rewards={'experience': 80 + player_level * 15, 'credits': 200 + player_level * 30},
             difficulty=player_level
-        ) 
+        )
