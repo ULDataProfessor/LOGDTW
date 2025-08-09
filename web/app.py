@@ -636,10 +636,149 @@ def get_galaxy():
                 'name': sector_data.name,
                 'faction': sector_data.faction_control,
                 'danger_level': sector_data.danger_level,
-                'coordinates': sector_data.coordinates
+                'coordinates': sector_data.coordinates,
+                'planets': len(sector_data.planets),
+                'stations': len(sector_data.stations),
+                'events': len(sector_data.events),
+                'resources': list(sector_data.resources.keys())
             }
     
     return jsonify(success=True, galaxy=galaxy_map)
+
+@app.route('/api/sector/<int:sector_id>', methods=['GET'])
+def get_sector_details(sector_id):
+    """Get detailed information about a specific sector"""
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Sector generation not available')
+    
+    try:
+        player = get_current_player()
+        
+        # Check if player has discovered this sector
+        visibility = SectorVisibility.query.filter_by(
+            player_id=player.id, sector_id=sector_id
+        ).first()
+        
+        if not visibility or not visibility.discovered:
+            return jsonify(success=False, message='Sector not yet discovered')
+        
+        systems = get_game_systems()
+        proc_gen = systems['procedural_generator']
+        
+        # Generate detailed sector information
+        sector_data = proc_gen.generate_galaxy_sector(sector_id)
+        
+        # Format planet information
+        planets_info = []
+        for planet in sector_data.planets:
+            planets_info.append({
+                'name': planet.name,
+                'size': planet.size,
+                'biome': planet.biome.value if hasattr(planet.biome, 'value') else str(planet.biome),
+                'population': planet.population,
+                'tech_level': planet.tech_level,
+                'trade_goods': planet.trade_goods,
+                'faction_control': planet.faction_control
+            })
+        
+        # Format station information
+        stations_info = []
+        for station in sector_data.stations:
+            stations_info.append({
+                'name': station.get('name', 'Unknown Station'),
+                'type': station.get('type', 'Trading Post'),
+                'services': station.get('services', ['Trade', 'Repair', 'Fuel']),
+                'faction': station.get('faction', 'Neutral')
+            })
+        
+        # Format events
+        events_info = []
+        for event in sector_data.events:
+            events_info.append({
+                'type': event.get('type', 'Unknown'),
+                'description': event.get('description', 'Something interesting is happening here'),
+                'active': event.get('active', True)
+            })
+        
+        sector_details = {
+            'id': sector_data.id,
+            'name': sector_data.name,
+            'coordinates': sector_data.coordinates,
+            'faction_control': sector_data.faction_control,
+            'danger_level': sector_data.danger_level,
+            'planets': planets_info,
+            'stations': stations_info,
+            'events': events_info,
+            'trade_routes': sector_data.trade_routes,
+            'stellar_objects': sector_data.stellar_objects,
+            'warp_gates': sector_data.warp_gates,
+            'resources': sector_data.resources,
+            'discovery_date': sector_data.discovery_date
+        }
+        
+        return jsonify(success=True, sector=sector_details)
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Error generating sector: {str(e)}')
+
+@app.route('/api/scan_sector', methods=['POST'])
+def scan_current_sector():
+    """Perform a detailed scan of the current sector"""
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Scanning not available')
+    
+    try:
+        player = get_current_player()
+        current_sector = player.current_sector
+        
+        # Update fog of war
+        update_fog_of_war(player, current_sector)
+        
+        # Get detailed sector information
+        systems = get_game_systems()
+        proc_gen = systems['procedural_generator']
+        sector_data = proc_gen.generate_galaxy_sector(current_sector)
+        
+        # Perform scan based on player's piloting skill
+        piloting_skill = player.skills.get('Piloting', 1)
+        scan_quality = min(piloting_skill * 20, 100)  # 20% per skill level, max 100%
+        
+        scan_results = {
+            'sector_id': current_sector,
+            'scan_quality': scan_quality,
+            'basic_info': {
+                'name': sector_data.name,
+                'faction': sector_data.faction_control,
+                'danger_level': sector_data.danger_level
+            }
+        }
+        
+        # Add more details based on scan quality
+        if scan_quality >= 20:
+            scan_results['planets_detected'] = len(sector_data.planets)
+            scan_results['stations_detected'] = len(sector_data.stations)
+        
+        if scan_quality >= 40:
+            scan_results['stellar_objects'] = sector_data.stellar_objects[:3]  # Show first 3
+            scan_results['resources_detected'] = list(sector_data.resources.keys())[:2]
+        
+        if scan_quality >= 60:
+            scan_results['trade_routes'] = sector_data.trade_routes
+            scan_results['warp_gates'] = sector_data.warp_gates
+        
+        if scan_quality >= 80:
+            scan_results['events_detected'] = len([e for e in sector_data.events if e.get('active', True)])
+            scan_results['detailed_resources'] = sector_data.resources
+        
+        # Check for random events during scanning
+        event_result = check_random_events(player, EventContext.IN_SPACE)
+        if event_result:
+            scan_results['random_event'] = event_result
+        
+        return jsonify(success=True, scan_results=scan_results)
+        
+    except Exception as e:
+        return jsonify(success=False, message=f'Scan failed: {str(e)}')
 
 # ============================================================================
 # Static file serving

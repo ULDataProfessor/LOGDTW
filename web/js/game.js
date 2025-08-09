@@ -2045,6 +2045,193 @@ function showStats() {
     modal.show();
 }
 
+// Missing button functions - implementing them now
+function showGalaxyMap() {
+    if (window.game) {
+        window.game.terminal.addASCIIArt('galaxy');
+        window.game.showMap();
+    }
+}
+
+function randomJump() {
+    if (window.game) {
+        const randomSector = Math.floor(Math.random() * 1000) + 1;
+        window.game.terminal.addLine('SYSTEM', '🎲 Initiating random jump!', 'warning');
+        setTimeout(() => {
+            window.game.travelToSector(randomSector);
+        }, 1000);
+    }
+}
+
+function showMarketAnalysis() {
+    const modal = new Modal('Market Analysis', `
+        <div class="market-analysis">
+            <h4>Sector Market Trends</h4>
+            <div class="analysis-section">
+                <h5>Price Volatility</h5>
+                <div class="trend-item">
+                    <span class="item-name">Electronics</span>
+                    <span class="volatility high">High Volatility</span>
+                    <span class="recommendation">Buy Low</span>
+                </div>
+                <div class="trend-item">
+                    <span class="item-name">Food</span>
+                    <span class="volatility medium">Medium Volatility</span>
+                    <span class="recommendation">Hold</span>
+                </div>
+                <div class="trend-item">
+                    <span class="item-name">Weapons</span>
+                    <span class="volatility low">Low Volatility</span>
+                    <span class="recommendation">Sell High</span>
+                </div>
+            </div>
+            <div class="analysis-section">
+                <h5>Best Trade Routes</h5>
+                <div class="route-item">
+                    <strong>Sector 1 → Sector 5:</strong> Food (+15% profit)
+                </div>
+                <div class="route-item">
+                    <strong>Sector 3 → Sector 8:</strong> Electronics (+22% profit)
+                </div>
+                <div class="route-item">
+                    <strong>Sector 2 → Sector 7:</strong> Weapons (+18% profit)
+                </div>
+            </div>
+        </div>
+    `);
+    modal.show();
+}
+
+function showTradeRoutes() {
+    const modal = new Modal('Trade Routes', `
+        <div class="trade-routes">
+            <h4>Profitable Trade Routes</h4>
+            <div class="route-list">
+                <div class="route-card">
+                    <div class="route-header">
+                        <h5>The Iron Circuit</h5>
+                        <span class="profit">+25% Profit</span>
+                    </div>
+                    <div class="route-path">Sector 1 → Sector 4 → Sector 7 → Sector 1</div>
+                    <div class="route-goods">Best for: Iron Ore, Raw Materials</div>
+                    <div class="route-risk">Risk Level: <span class="risk-low">Low</span></div>
+                </div>
+                <div class="route-card">
+                    <div class="route-header">
+                        <h5>Tech Highway</h5>
+                        <span class="profit">+40% Profit</span>
+                    </div>
+                    <div class="route-path">Sector 2 → Sector 5 → Sector 9</div>
+                    <div class="route-goods">Best for: Electronics, Computer Chips</div>
+                    <div class="route-risk">Risk Level: <span class="risk-medium">Medium</span></div>
+                </div>
+                <div class="route-card">
+                    <div class="route-header">
+                        <h5>Danger Run</h5>
+                        <span class="profit">+60% Profit</span>
+                    </div>
+                    <div class="route-path">Sector 3 → Sector 6 → Sector 8</div>
+                    <div class="route-goods">Best for: Weapons, Rare Metals</div>
+                    <div class="route-risk">Risk Level: <span class="risk-high">High</span></div>
+                </div>
+            </div>
+        </div>
+    `);
+    modal.show();
+}
+
+function showCombatLog() {
+    const modal = new Modal('Combat Log', `
+        <div class="combat-log">
+            <h4>Recent Combat Encounters</h4>
+            <div class="log-entries">
+                <div class="log-entry victory">
+                    <div class="log-header">
+                        <span class="timestamp">Turn 42</span>
+                        <span class="result victory">VICTORY</span>
+                    </div>
+                    <div class="log-details">
+                        Defeated Space Pirate in Sector 5
+                        <br>Rewards: 150 credits, Combat XP +15
+                    </div>
+                </div>
+                <div class="log-entry escape">
+                    <div class="log-header">
+                        <span class="timestamp">Turn 38</span>
+                        <span class="result escape">ESCAPED</span>
+                    </div>
+                    <div class="log-details">
+                        Fled from Alien Scout in Sector 3
+                        <br>Damage taken: 25 HP
+                    </div>
+                </div>
+                <div class="log-entry victory">
+                    <div class="log-header">
+                        <span class="timestamp">Turn 35</span>
+                        <span class="result victory">VICTORY</span>
+                    </div>
+                    <div class="log-details">
+                        Destroyed Rogue Trader in Sector 2
+                        <br>Rewards: 200 credits, Rare salvage
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    modal.show();
+}
+
+function showAchievements() {
+    const modal = new Modal('Achievements', `
+        <div class="achievements">
+            <h4>Your Achievements</h4>
+            <div class="achievement-list">
+                <div class="achievement unlocked">
+                    <div class="achievement-icon">🚀</div>
+                    <div class="achievement-info">
+                        <h5>First Flight</h5>
+                        <p>Complete your first sector jump</p>
+                        <span class="unlock-date">Unlocked</span>
+                    </div>
+                </div>
+                <div class="achievement unlocked">
+                    <div class="achievement-icon">💰</div>
+                    <div class="achievement-info">
+                        <h5>Merchant</h5>
+                        <p>Complete 10 trading transactions</p>
+                        <span class="unlock-date">Unlocked</span>
+                    </div>
+                </div>
+                <div class="achievement unlocked">
+                    <div class="achievement-icon">🗺️</div>
+                    <div class="achievement-info">
+                        <h5>Explorer</h5>
+                        <p>Visit 5 different sectors</p>
+                        <span class="unlock-date">Unlocked</span>
+                    </div>
+                </div>
+                <div class="achievement locked">
+                    <div class="achievement-icon">⚔️</div>
+                    <div class="achievement-info">
+                        <h5>Warrior</h5>
+                        <p>Win 10 combat encounters</p>
+                        <span class="unlock-date">Locked</span>
+                    </div>
+                </div>
+                <div class="achievement locked">
+                    <div class="achievement-icon">👑</div>
+                    <div class="achievement-info">
+                        <h5>Trade Baron</h5>
+                        <p>Accumulate 100,000 credits</p>
+                        <span class="unlock-date">Locked</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    modal.show();
+}
+
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new GameEngine();
