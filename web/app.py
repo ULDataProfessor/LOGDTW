@@ -824,6 +824,19 @@ def js_files(filename):
     """Serve JavaScript files"""
     return send_from_directory('js', filename)
 
+# PWA assets
+@app.route('/manifest.json')
+def manifest_json():
+    return send_from_directory('.', 'manifest.json')
+
+@app.route('/service-worker.js')
+def service_worker():
+    return send_from_directory('.', 'service-worker.js')
+
+@app.route('/icons/<path:filename>')
+def icons(filename):
+    return send_from_directory('icons', filename)
+
 # ============================================================================
 # Error handlers
 # ============================================================================
