@@ -432,11 +432,18 @@ class World:
         """Check if player can jump to sector number"""
         if self.current_sector not in self.sector_connections:
             return False
-        
+
         for connection in self.sector_connections[self.current_sector]:
             if connection.destination_sector == sector_number:
                 return True
         return False
+
+    def can_jump_to(self, destination: str) -> bool:
+        """Check if player can jump to a destination location"""
+        if destination not in self.locations:
+            return False
+        current = self.locations.get(self.current_location)
+        return destination in current.connections if current else False
 
     def jump_to_sector(self, sector_number: int, player) -> Dict:
         """Jump to a connected sector (TW2002 style)"""

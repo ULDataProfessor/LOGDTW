@@ -51,16 +51,16 @@ class DisplayManager:
         
         self.console.print(Panel(location_text, title="Location", border_style="blue"))
     
-    def show_status(self, player: Player):
+    def show_status(self, player: Player, achievements: List[str] = None):
         """Display player status"""
         if not player:
             return
-        
+
         # Create status table
         status_table = Table(title="Player Status", show_header=False, box=None)
         status_table.add_column("Stat", style="yellow")
         status_table.add_column("Value", style="white")
-        
+
         status_table.add_row("Name", player.name)
         status_table.add_row("Level", str(player.level))
         status_table.add_row("Health", f"{player.health}/{player.max_health}")
@@ -68,7 +68,15 @@ class DisplayManager:
         status_table.add_row("Fuel", f"{player.fuel}/{player.max_fuel}")
         status_table.add_row("Credits", str(player.credits))
         status_table.add_row("Experience", f"{player.experience}/{player.experience_to_next}")
-        
+
+        if getattr(player, "titles", None):
+            status_table.add_row("Titles", ", ".join(player.titles))
+
+        status_table.add_row(
+            "Achievements",
+            ", ".join(achievements) if achievements else "None",
+        )
+
         self.console.print(status_table)
     
     def show_detailed_status(self, player: Player):

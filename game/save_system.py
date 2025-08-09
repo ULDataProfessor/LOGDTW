@@ -554,8 +554,9 @@ class SaveGameSystem:
         except Exception as e:
             return {"valid": False, "error": f"Error verifying save: {e}"}
     
-    def create_game_state(self, player, world, missions, npcs, trading, 
-                         skills, combat, settings, statistics) -> GameState:
+    def create_game_state(self, player, world, missions, npcs, trading,
+                         skills, combat, settings, statistics,
+                         achievements: Optional[List[str]] = None) -> GameState:
         """Create a GameState object from game components"""
         
         # Convert objects to serializable dictionaries
@@ -577,7 +578,7 @@ class SaveGameSystem:
             combat_data=combat_data,
             settings=settings or {},
             statistics=statistics or {},
-            achievements=[],
+            achievements=achievements or [],
             timestamp=time.time()
         )
     
