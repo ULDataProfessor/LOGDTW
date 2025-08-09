@@ -163,32 +163,59 @@ if (isset($_POST['action'])) {
             
         case 'save_game':
             $save_name = $_POST['save_name'] ?? 'quicksave';
-            $save_data = json_encode($_SESSION['game_data']);
-            file_put_contents("saves/{$save_name}.json", $save_data);
-            
-            echo json_encode([
-                'success' => true,
-                'message' => 'Game saved successfully'
+            $payload = json_encode([
+                'save_name' => $save_name,
+                'game_data' => $_SESSION['game_data']
             ]);
+            $context = stream_context_create([
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-Type: application/json\r\n",
+                    'content' => $payload
+                ]
+            ]);
+            $response = file_get_contents('http://localhost:5000/save', false, $context);
+            if ($response === false) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Save service unavailable'
+                ]);
+            } else {
+                echo $response;
+            }
             exit;
-            
+
         case 'load_game':
             $save_name = $_POST['save_name'] ?? 'quicksave';
-            $save_file = "saves/{$save_name}.json";
-            
-            if (file_exists($save_file)) {
-                $save_data = file_get_contents($save_file);
-                $_SESSION['game_data'] = json_decode($save_data, true);
-                
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Game loaded successfully',
-                    'player' => $_SESSION['game_data']['player']
-                ]);
+            $payload = json_encode(['save_name' => $save_name]);
+            $context = stream_context_create([
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "Content-Type: application/json\r\n",
+                    'content' => $payload
+                ]
+            ]);
+            $api_response = file_get_contents('http://localhost:5000/load', false, $context);
+            if ($api_response !== false) {
+                $data = json_decode($api_response, true);
+                if ($data && $data['success']) {
+                    $_SESSION['game_data'] = $data['game_data'];
+                    echo json_encode([
+                        'success' => true,
+                        'message' => $data['message'],
+                        'player' => $_SESSION['game_data']['player'],
+                        'world' => $_SESSION['game_data']['world']
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => $data['message'] ?? 'Load failed'
+                    ]);
+                }
             } else {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Save file not found'
+                    'message' => 'Load service unavailable'
                 ]);
             }
             exit;

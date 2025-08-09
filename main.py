@@ -37,6 +37,7 @@ from game.skills import Skill
 from game.ai_counselor import ShipCounselor
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
+from game.save_system import SaveGameSystem
 
 class Game:
     def __init__(self):
@@ -55,6 +56,7 @@ class Game:
         self.banking_system = None
         self.sos_system = None
         self.running = False
+        self.save_system = SaveGameSystem()
 
     def clear_screen(self):
         """Clear the console screen"""
