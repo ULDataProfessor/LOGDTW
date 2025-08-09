@@ -42,11 +42,34 @@ class NPC:
 
 class NPCSystem:
     """Handles NPC interactions and conversations"""
-    
-    def __init__(self):
+
+    def __init__(self, quest_system=None, trading_system=None):
         self.npcs = {}
         self.conversations = {}
         self.npc_templates = self._create_npc_templates()
+        self.quest_system = quest_system
+        self.trading_system = trading_system
+
+    def set_systems(self, quest_system, trading_system):
+        """Link external systems after initialization"""
+        self.quest_system = quest_system
+        self.trading_system = trading_system
+
+    def _convert_choice_to_quest(self, player: Player, npc: NPC):
+        """Convert dialogue choice into a quest offer if possible"""
+        if not self.quest_system:
+            return None
+        quests = self.quest_system.get_available_quests(player, npc.location)
+        if quests:
+            return random.choice(quests)
+        return None
+
+    def _apply_market_modifier(self, npc: NPC, modifier: float = 0.9):
+        """Apply a market price modifier via the trading system"""
+        if not self.trading_system:
+            return None
+        self.trading_system.apply_price_modifier(npc.location, modifier)
+        return modifier
 
     def _generate_personality_traits(self, base: str) -> Dict[str, int]:
         """Generate nuanced personality traits based on base personality"""
@@ -401,41 +424,45 @@ class NPCSystem:
     def handle_conversation_choice(self, player: Player, npc: NPC, choice: str) -> Dict:
         """Handle player's conversation choice"""
         if choice == 'Ask about services':
-            return self._handle_services_inquiry(npc)
+            result = self._handle_services_inquiry(npc)
         elif choice == 'Ask about location':
-            return self._handle_location_inquiry(npc)
+            result = self._handle_location_inquiry(npc)
         elif choice == 'Ask about rumors':
-            return self._handle_rumors_inquiry(npc)
+            result = self._handle_rumors_inquiry(player, npc)
         elif choice == 'Ask about secrets':
-            return self._handle_secrets_inquiry(npc)
+            result = self._handle_secrets_inquiry(npc)
         elif choice == 'Browse goods' and npc.npc_type == 'trader':
-            return self._handle_browse_goods(npc)
+            result = self._handle_browse_goods(npc)
         elif choice == 'Negotiate prices' and npc.npc_type == 'trader':
-            return self._handle_negotiate_prices(player, npc)
+            result = self._handle_negotiate_prices(player, npc)
         elif choice == 'Ask about trade secrets' and npc.npc_type == 'trader':
-            return self._handle_trade_secrets(npc)
+            result = self._handle_trade_secrets(npc)
         elif choice == 'Discuss research' and npc.npc_type == 'scientist':
-            return self._handle_discuss_research(npc)
+            result = self._handle_discuss_research(npc)
         elif choice == 'Ask about classified data' and npc.npc_type == 'scientist':
-            return self._handle_classified_data(npc)
+            result = self._handle_classified_data(npc)
         elif choice == 'Request performance' and npc.npc_type == 'entertainer':
-            return self._handle_request_performance(npc)
+            result = self._handle_request_performance(npc)
         elif choice == 'Ask for stories' and npc.npc_type == 'entertainer':
-            return self._handle_stories_request(npc)
+            result = self._handle_stories_request(npc)
         elif choice == 'Ask about classified information' and npc.npc_type == 'official':
-            return self._handle_classified_information(npc)
+            result = self._handle_classified_information(npc)
         elif choice == 'Ask about dangerous information' and npc.npc_type == 'pirate':
-            return self._handle_dangerous_information(npc)
+            result = self._handle_dangerous_information(npc)
         elif choice == 'Seek prophecy' and npc.npc_type == 'mystic':
-            return self._handle_prophecy_request(npc)
+            result = self._handle_prophecy_request(npc)
         elif choice == 'Ask about the void' and npc.npc_type == 'mystic':
-            return self._handle_void_inquiry(npc)
+            result = self._handle_void_inquiry(npc)
         elif choice == 'Request mystical guidance' and npc.npc_type == 'mystic':
-            return self._handle_mystical_guidance(npc)
+            result = self._handle_mystical_guidance(npc)
         elif choice == 'End conversation':
-            return self._handle_end_conversation(npc)
+            result = self._handle_end_conversation(npc)
         else:
-            return {'message': 'That option is not available.'}
+            result = {'message': 'That option is not available.'}
+
+        if result.get('rep_change'):
+            npc.adjust_relationship(player.name, result['rep_change'])
+        return result
     
     def _handle_services_inquiry(self, npc: NPC) -> Dict:
         """Handle services inquiry"""
@@ -456,13 +483,12 @@ class NPCSystem:
         
         return {'message': '\n'.join(location_info)}
     
-    def _handle_rumors_inquiry(self, npc: NPC) -> Dict:
-        """Handle rumors inquiry - uses the new rumors dialogue"""
+    def _handle_rumors_inquiry(self, player: Player, npc: NPC) -> Dict:
+        """Handle rumors inquiry - may trigger quests or market effects"""
         if 'rumors' in npc.dialogue:
             rumor = random.choice(npc.dialogue['rumors'])
-            return {'message': f"{npc.name} shares a rumor: {rumor}"}
+            response = {'message': f"{npc.name} shares a rumor: {rumor}", 'rep_change': 1}
         else:
-            # Fallback to generic rumors
             generic_rumors = [
                 "I heard there's a new trade route opening up.",
                 "Rumors say there's a hidden pirate base nearby.",
@@ -472,7 +498,20 @@ class NPCSystem:
                 "Some claim there's a lost colony out there somewhere."
             ]
             rumor = random.choice(generic_rumors)
-            return {'message': f"{npc.name} shares a rumor: {rumor}"}
+            response = {'message': f"{npc.name} shares a rumor: {rumor}", 'rep_change': 1}
+
+        quest = self._convert_choice_to_quest(player, npc)
+        if quest:
+            response['quest_offer'] = quest.id
+            response['message'] += f" They mention a mission: {quest.name}."
+
+        if npc.npc_type == 'trader':
+            modifier = self._apply_market_modifier(npc)
+            if modifier:
+                response['price_modifier'] = modifier
+                response['message'] += " Market prices seem more favorable now."
+
+        return response
     
     def _handle_browse_goods(self, npc: NPC) -> Dict:
         """Handle browsing goods"""
@@ -569,9 +608,9 @@ class NPCSystem:
         """Handle secrets inquiry - uses the new secrets dialogue"""
         if 'secrets' in npc.dialogue:
             secret = random.choice(npc.dialogue['secrets'])
-            return {'message': f"{npc.name} leans in close and whispers: {secret}"}
+            return {'message': f"{npc.name} leans in close and whispers: {secret}", 'rep_change': 2}
         else:
-            return {'message': f"{npc.name} looks uncomfortable and changes the subject."}
+            return {'message': f"{npc.name} looks uncomfortable and changes the subject.", 'rep_change': -1}
     
     def _handle_trade_secrets(self, npc: NPC) -> Dict:
         """Handle trade secrets inquiry"""

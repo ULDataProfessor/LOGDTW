@@ -165,6 +165,12 @@ class TradingSystem:
         """Update prices for all markets"""
         for location, market_data in self.location_markets.items():
             self._update_market_prices(location, market_data)
+
+    def apply_price_modifier(self, location: str, modifier: float):
+        """Apply a temporary price modifier to a market"""
+        if location in self.location_markets:
+            self.location_markets[location]['price_modifier'] *= modifier
+            self._update_market_prices(location, self.location_markets[location])
     
     def get_market_info(self, location: str) -> Dict:
         """Get market information for a location"""

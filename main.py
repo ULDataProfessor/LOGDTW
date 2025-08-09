@@ -215,7 +215,7 @@ sectors - All sectors  sector - Current sector
         self.combat_system = CombatSystem()
         self.trading_system = TradingSystem()
         self.quest_system = QuestSystem()
-        self.npc_system = NPCSystem()
+        self.npc_system = NPCSystem(self.quest_system, self.trading_system)
         self.holodeck_system = HolodeckSystem()
         self.stock_market = StockMarket()
         self.banking_system = BankingSystem()
@@ -709,7 +709,20 @@ sectors - All sectors  sector - Current sector
                 
                 result = self.npc_system.handle_conversation_choice(self.player, npc, selected_option)
                 self.console.print(f"[cyan]{result['message']}[/cyan]")
-                
+
+                if result.get('quest_offer'):
+                    quest_id = result['quest_offer']
+                    quest = self.quest_system.available_quests.get(quest_id)
+                    if quest and Confirm.ask(f"Accept quest '{quest.name}'?"):
+                        q_result = self.quest_system.accept_quest(self.player, quest_id)
+                        self.console.print(f"[green]{q_result['message']}[/green]")
+
+                if result.get('price_modifier'):
+                    self.console.print(f"[green]Market prices adjusted at {npc.location}![/green]")
+
+                if result.get('rep_change'):
+                    self.console.print(f"[magenta]Relationship with {npc.name} changed by {result['rep_change']}[/magenta]")
+
                 if result.get('end_conversation'):
                     break
                     
