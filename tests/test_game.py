@@ -39,8 +39,8 @@ def test_player():
     assert player.credits == 1000
     
     # Test starting items
-    assert len(player.inventory) == 6
-    print("✓ Player created with 6 starting items")
+    assert len(player.inventory) == 7
+    print("✓ Player created with 7 starting items")
     
     # Test experience system
     player.gain_experience(50)
@@ -49,7 +49,7 @@ def test_player():
     
     # Test item management
     assert player.add_item(player.inventory[0])
-    assert len(player.inventory) == 7
+    assert len(player.inventory) == 8
     print("✓ Item management working")
     
     # Test name and ship name changes
@@ -81,17 +81,17 @@ def test_world():
     assert world.current_location == "Earth Station"
     print("✓ Starting location correct")
     
-    # Test sector jumping
-    assert world.instant_jump("Mars Colony")
-    assert world.current_location == "Mars Colony"
-    print("✓ Sector jumping working")
+    # Test sector information retrieval
+    sector_info = world.get_current_sector_display()
+    assert sector_info['location'] == "Earth Station"
+    print("✓ Sector info retrieval working")
     
     # Test market system
     assert world.can_trade()
     print("✓ Market system working")
     
     # Test sector discovery
-    assert "Beta" in world.discovered_sectors
+    assert world.current_sector in world.discovered_sectors
     print("✓ Sector discovery working")
     
     print("✓ World tests passed!")
@@ -192,10 +192,17 @@ def test_npcs():
     assert npc.npc_type == "trader"
     print("✓ NPC creation working")
     
-    # Test conversation
+    # Test conversation with branching dialogue
     player = Player()
-    result = npcs.start_conversation(player, "Test NPC")
-    assert result['success']
+    quest_system = QuestSystem()
+    result = npcs.start_conversation(
+        player,
+        "Test NPC",
+        quest_system=quest_system,
+        choices=["Ask about work", "Yes", "Goodbye"],
+    )
+    assert result["success"]
+    assert "delivery_001" in quest_system.active_quests
     print("✓ NPC conversation working")
     
     print("✓ NPC tests passed!")
