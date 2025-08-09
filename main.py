@@ -307,11 +307,37 @@ sectors - All sectors  sector - Current sector
                     elif command.lower() in ['n', 'north', 's', 'south', 'e', 'east', 'w', 'west']:
                         dir_map = {'n': 'north', 's': 'south', 'e': 'east', 'w': 'west'}
                         direction = dir_map.get(command.lower(), command.lower())
-                        moved = self.world.move_on_surface(direction)
-                        if not moved:
+                        result = self.world.move_on_surface(direction)
+                        if not result['moved']:
                             self.console.print(f"[red]You can't move {direction} from here.[/red]")
+                        else:
+                            for event in result['events']:
+                                if event['type'] == 'combat':
+                                    self.console.print("[red]Hostile encounter![/red]")
+                                    self.combat_system.start_combat(self.player, event.get('enemy_type'))
+                                elif event['type'] == 'item':
+                                    names = ', '.join([item.name for item in event['items']])
+                                    self.console.print(f"[green]You found: {names}. Use 'take <item>' to pick up.[/green]")
+                                elif event['type'] == 'npc':
+                                    names = ', '.join(event['npcs'])
+                                    self.console.print(f"[cyan]You encounter: {names}. Use 'talk <npc>' to interact.[/cyan]")
+                                elif event['type'] == 'resource':
+                                    self.console.print(f"[yellow]Resource detected: {event['resource']}. Use 'gather' to collect.[/yellow]")
+                    elif command.startswith('take '):
+                        item_name = command[5:]
+                        result = self.world.collect_surface_item(self.player, item_name)
+                        self.console.print(result['message'])
+                    elif command.startswith('talk '):
+                        npc_name = command[5:]
+                        result = self.world.talk_to_surface_npc(npc_name)
+                        self.console.print(result['message'])
+                    elif command.lower() in ['gather', 'collect']:
+                        result = self.world.collect_surface_resource(self.player)
+                        self.console.print(result['message'])
+                    elif command.lower() == 'look':
+                        self.display.show_planet_surface(self.world)
                     else:
-                        self.console.print("[yellow]Available commands: n/s/e/w to move, leave/orbit to return to space.[/yellow]")
+                        self.console.print("[yellow]Available commands: n/s/e/w to move, take <item>, talk <npc>, gather, leave/orbit to return to space.[/yellow]")
                     continue
                 
                 # Check if in holodeck
