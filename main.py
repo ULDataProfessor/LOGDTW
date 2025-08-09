@@ -494,6 +494,7 @@ sectors - All sectors  sector - Current sector
                     self.handle_combat(command)
                 
                 elif command.lower() in ['quests', 'missions']:
+                    self.quest_system.generate_dynamic_quest(self.player)
                     self.display.show_quests(self.quest_system.get_available_quests(self.player))
                 
                 elif command.lower() in ['genesis', 'fire genesis']:
