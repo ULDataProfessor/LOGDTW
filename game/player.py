@@ -46,6 +46,8 @@ class Player:
         self.max_health = 100
         self.energy = 100
         self.max_energy = 100
+        self.mental_health = 100
+        self.max_mental_health = 100
         self.fuel = 100
         self.max_fuel = 100
         
@@ -303,7 +305,18 @@ class Player:
             self.energy -= amount
             return True
         return False
-    
+
+    def add_mental_health(self, amount: int):
+        """Add mental health to player"""
+        self.mental_health = min(self.max_mental_health, self.mental_health + amount)
+
+    def use_mental_health(self, amount: int) -> bool:
+        """Use mental health"""
+        if self.mental_health >= amount:
+            self.mental_health -= amount
+            return True
+        return False
+
     def add_fuel(self, amount: int):
         """Add fuel to player"""
         self.fuel = min(self.max_fuel, self.fuel + amount)
