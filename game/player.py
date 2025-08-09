@@ -112,6 +112,9 @@ class Player:
             'Traders': 0,
             'Neutral': 0
         }
+
+        # Diplomacy system handles standings and treaties
+        self.diplomacy = Diplomacy(list(self.reputation.keys()))
         
         # Coordinates
         self.coordinates = (0, 0, 0)
@@ -461,11 +464,36 @@ class Player:
     def get_inventory_value(self) -> int:
         """Calculate total value of inventory"""
         return sum(item.value for item in self.inventory)
-    
+
     def get_equipment_value(self) -> int:
         """Calculate total value of equipped items"""
         return sum(item.value for item in self.equipped.values() if item)
-    
+
     def get_total_wealth(self) -> int:
         """Calculate total wealth (credits + inventory + equipment)"""
         return self.credits + self.get_inventory_value() + self.get_equipment_value()
+
+    # -- Diplomacy interactions -----------------------------------------
+    def improve_relationship(self, faction: str, amount: int) -> int:
+        """Improve standing with a faction and return the new value."""
+        new_rep = self.diplomacy.change_standing(faction, abs(amount))
+        self.reputation[faction] = new_rep
+        return new_rep
+
+    def ruin_relationship(self, faction: str, amount: int) -> int:
+        """Decrease standing with a faction and return the new value."""
+        new_rep = self.diplomacy.change_standing(faction, -abs(amount))
+        self.reputation[faction] = new_rep
+        return new_rep
+
+    def form_treaty(self, faction: str, treaty_type: str) -> None:
+        """Form a treaty with a faction."""
+        self.diplomacy.form_treaty(faction, treaty_type)
+
+    def break_treaty(self, faction: str) -> None:
+        """Break an existing treaty with a faction."""
+        self.diplomacy.break_treaty(faction)
+
+    def has_treaty(self, faction: str, treaty_type: Optional[str] = None) -> bool:
+        """Check if a treaty exists with a faction."""
+        return self.diplomacy.has_treaty(faction, treaty_type)
