@@ -260,6 +260,8 @@ class TradingSystem:
         
         # Calculate sell price (usually lower than buy price)
         sell_price = item.value * 0.7  # 70% of base value
+        bonus = player.get_crew_bonus('trading') / 100
+        sell_price *= (1 + bonus)
         
         # Apply market specialization bonus
         if item.item_type == 'trade_good':

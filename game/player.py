@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from game.skills import Skill
+from game.crew import Crew, CrewMember
 
 @dataclass
 class Item:
@@ -114,9 +115,32 @@ class Player:
         
         # Coordinates
         self.coordinates = (0, 0, 0)
-        
+
         # Starting items
         self._add_starting_items()
+
+        # Crew management
+        self.crew = Crew()
+
+    # ------------------------------------------------------------------
+    # Crew command helpers
+    def hire_crew_member(self, name: str, role: str = "unassigned", skills: Optional[Dict[str, int]] = None) -> CrewMember:
+        """Recruit a new crew member."""
+        member = CrewMember(name=name, role=role, skills=skills or {})
+        self.crew.hire(member)
+        return member
+
+    def assign_crew_role(self, name: str, role: str) -> bool:
+        """Assign a role to an existing crew member."""
+        return self.crew.assign_role(name, role)
+
+    def interact_with_crew(self, name: str, interaction: str) -> bool:
+        """Interact with a crew member affecting morale."""
+        return self.crew.interact(name, interaction)
+
+    def get_crew_bonus(self, category: str) -> float:
+        """Return total crew bonus for a category."""
+        return self.crew.get_total_bonus(category)
     
     def _create_cargo_holds(self) -> List[CargoHold]:
         """Create cargo holds for the ship"""
@@ -258,10 +282,12 @@ class Player:
     def get_total_damage(self) -> int:
         """Calculate total damage including equipped items"""
         total = self.stats['strength'] // 2
-        
+
         if self.equipped['weapon']:
             total += self.equipped['weapon'].damage
-        
+
+        # Crew combat bonus
+        total += int(self.get_crew_bonus('combat'))
         return total
     
     def get_total_defense(self) -> int:
@@ -327,6 +353,14 @@ class Player:
             self.fuel -= amount
             return True
         return False
+
+    # Travel ------------------------------------------------------
+    def calculate_travel_cost(self, distance: int) -> int:
+        """Calculate fuel cost for travel considering crew bonuses."""
+        base_cost = distance
+        bonus = self.get_crew_bonus('piloting') / 100
+        cost = int(base_cost * (1 - bonus))
+        return max(1, cost)
     
     def get_cargo_hold(self, hold_name: str) -> Optional[CargoHold]:
         """Get cargo hold by name"""
