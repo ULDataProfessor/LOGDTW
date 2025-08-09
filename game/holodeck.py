@@ -220,7 +220,7 @@ class HolodeckSystem:
                     player.skills['survival'].gain_experience(amount)
                 rewards_given.append(f"+{amount} Survival")
             elif reward_type == 'mental_health':
-                # Mental health affects stress levels
+                player.add_mental_health(amount)
                 rewards_given.append(f"+{amount} Mental Health")
             elif reward_type == 'piloting':
                 if 'piloting' in player.skills:
