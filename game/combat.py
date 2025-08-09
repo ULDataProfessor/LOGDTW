@@ -184,8 +184,8 @@ class CombatSystem:
         if not self.in_combat:
             return {'success': False, 'message': 'Not in combat'}
         
-        # Fleeing chance based on player dexterity
-        flee_chance = min(0.8, self.player.stats['dexterity'] / 20)
+        # Fleeing chance based on player agility
+        flee_chance = min(0.8, self.player.stats['agility'] / 20)
         
         if random.random() < flee_chance:
             result = {

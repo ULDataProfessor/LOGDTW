@@ -35,7 +35,7 @@ LOGDTW2002 is a text-based adventure game that combines the RPG elements of Lege
 
 - **Level System**: Gain experience through combat, quests, and exploration
 - **Skills**: Improve combat, pilot, trading, engineering, navigation, and diplomacy
-- **Stats**: Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma
+- **Stats**: Strength, Agility, Endurance, Intelligence, Charisma, Perception
 - **Equipment**: Weapons, armor, shields, and special items
 
 ### Space Exploration
