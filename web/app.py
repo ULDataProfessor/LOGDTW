@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 """
 Flask Web Application for LOGDTW2002
-A complete web interface for the space trading game
+A complete web interface for the space trading game with SQLite database
 """
 
 import os
 import sys
 import json
+import time
 from copy import deepcopy
+from datetime import datetime, timedelta
 from flask import Flask, session, request, jsonify, render_template, send_from_directory
 from werkzeug.security import generate_password_hash
+from flask_sqlalchemy import SQLAlchemy
 
 # Add the parent directory to the path to import game modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from game.player import Player
+    from game.player import Player as GamePlayer
     from game.world import World
     from game.enhanced_combat import EnhancedCombatSystem
     from game.procedural_generator import ProceduralGenerator
@@ -23,6 +26,8 @@ try:
     from game.dynamic_markets import DynamicMarketSystem
     from game.enhanced_missions import MissionManager
     from game.skills import SkillTree
+    from game.fog_of_war import FogOfWarSystem
+    from game.random_events import RandomEventSystem, EventContext
     GAME_MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import game modules: {e}")
@@ -31,6 +36,25 @@ except ImportError as e:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-production')
+
+# Database configuration
+database_path = os.path.join(os.path.dirname(__file__), 'logdtw2002.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_timeout': 20,
+    'pool_recycle': -1,
+    'pool_pre_ping': True
+}
+
+# Import models after app configuration
+from models import (
+    db, init_database, get_or_create_player, cleanup_old_sessions, get_database_stats,
+    Player, InventoryItem, SectorVisibility, EventHistory, MarketData, PlayerMission, GameSettings
+)
+
+# Initialize database
+init_database(app)
 
 # Global game systems (initialized on first use)
 game_systems = {
@@ -57,74 +81,168 @@ def get_game_systems():
     
     return game_systems
 
-DEFAULT_GAME_DATA = {
-    'player': {
-        'name': 'Captain',
-        'ship_name': 'Starfarer',
-        'level': 1,
-        'credits': 1000,
-        'health': 100,
-        'max_health': 100,
-        'energy': 100,
-        'max_energy': 100,
-        'fuel': 100,
-        'max_fuel': 100,
-        'experience': 0,
-        'current_sector': 1
-    },
-    'world': {
-        'current_location': 'Alpha Station',
-        'discovered_sectors': [1],
-        'turn_counter': 0
-    },
-    'inventory': [],
-    'skills': {
-        'Combat': 1,
-        'Piloting': 1,
-        'Trading': 1,
-        'Engineering': 1
-    },
-    'missions': {
-        'active': [],
-        'completed': [],
-        'available': []
-    },
-    'reputation': {
-        'Federation': 0,
-        'Empire': 0,
-        'Pirates': 0,
-        'Traders': 0
+def get_session_id() -> str:
+    """Get or create session ID"""
+    if 'session_id' not in session:
+        session['session_id'] = f"web_{int(time.time())}_{os.urandom(8).hex()}"
+    return session['session_id']
+
+def get_current_player() -> Player:
+    """Get the current player from database"""
+    session_id = get_session_id()
+    return get_or_create_player(session_id)
+
+def get_game_data() -> dict:
+    """Get current game data formatted for legacy API compatibility"""
+    player = get_current_player()
+    
+    # Get inventory items
+    inventory_items = [item.to_dict() for item in player.inventory]
+    
+    # Get discovered sectors
+    discovered_sectors = [
+        v.sector_id for v in SectorVisibility.query.filter_by(
+            player_id=player.id, discovered=True
+        ).all()
+    ]
+    
+    # Get active missions
+    active_missions = [
+        mission.to_dict() for mission in PlayerMission.query.filter_by(
+            player_id=player.id, status='active'
+        ).all()
+    ]
+    
+    # Format data for legacy compatibility
+    return {
+        'player': player.to_dict(),
+        'world': {
+            'current_location': player.current_location,
+            'discovered_sectors': discovered_sectors,
+            'turn_counter': player.turn_counter
+        },
+        'inventory': inventory_items,
+        'missions': active_missions,
+        'skills': player.skills,
+        'reputation': player.reputation
     }
-}
 
-def get_game_data():
-    """Get or initialize game data from session"""
-    if 'game_data' not in session:
-        session['game_data'] = deepcopy(DEFAULT_GAME_DATA)
-    return session['game_data']
+def update_fog_of_war(player: Player, new_sector: int = None):
+    """Update fog of war for player's current position"""
+    if not GAME_MODULES_AVAILABLE:
+        return
+    
+    current_sector = new_sector or player.current_sector
+    sensor_range = player.skills.get('Piloting', 1)  # Piloting affects sensor range
+    
+    # Get or create fog of war system
+    fog_system = FogOfWarSystem(max_sectors=GameSettings.get_setting('max_sectors', 1000))
+    
+    # Load existing visibility data
+    visibility_records = SectorVisibility.query.filter_by(player_id=player.id).all()
+    for record in visibility_records:
+        fog_system.sector_visibility[record.sector_id].discovered = record.discovered
+        fog_system.sector_visibility[record.sector_id].visible = record.visible
+        fog_system.sector_visibility[record.sector_id].visit_count = record.visit_count
+    
+    # Update visibility
+    newly_visible = fog_system.update_visibility(current_sector, sensor_range)
+    
+    # Save updated visibility to database
+    for sector_id in newly_visible:
+        vis_record = SectorVisibility.query.filter_by(
+            player_id=player.id, sector_id=sector_id
+        ).first()
+        
+        if not vis_record:
+            vis_record = SectorVisibility(
+                player_id=player.id,
+                sector_id=sector_id,
+                discovered=True,
+                visible=True,
+                visit_count=1,
+                last_visited=datetime.utcnow()
+            )
+            db.session.add(vis_record)
+        else:
+            vis_record.discovered = True
+            vis_record.visible = True
+            vis_record.visit_count += 1
+            vis_record.last_visited = datetime.utcnow()
+    
+    db.session.commit()
 
-def create_player_from_session():
-    """Create a Player object from session data"""
+def check_random_events(player: Player, context: EventContext) -> dict:
+    """Check for random events and handle them"""
     if not GAME_MODULES_AVAILABLE:
         return None
     
-    data = get_game_data()
-    player = Player()
+    event_system = RandomEventSystem()
     
-    # Update player with session data
-    player.name = data['player']['name']
-    player.ship_name = data['player']['ship_name']
-    player.level = data['player']['level']
-    player.credits = data['player']['credits']
-    player.health = data['player']['health']
-    player.max_health = data['player']['max_health']
-    player.energy = data['player']['energy']
-    player.max_energy = data['player']['max_energy']
-    player.fuel = data['player']['fuel']
-    player.max_fuel = data['player']['max_fuel']
-    player.experience = data['player']['experience']
+    # Build game state for event system
+    game_state = {
+        'player_level': player.level,
+        'player_health': player.health,
+        'current_sector': player.current_sector,
+        'credits': player.credits,
+        'reputation': player.reputation,
+        'inventory': [item.to_dict() for item in player.inventory],
+        'sector_danger': min(5, max(1, player.current_sector // 20 + 1))
+    }
     
-    return player
+    # Check for events
+    triggered_event = event_system.check_for_events(context, game_state)
+    
+    if triggered_event:
+        # Handle the event
+        outcome = event_system.handle_event(triggered_event, game_state)
+        
+        # Save event to database
+        event_record = EventHistory(
+            player_id=player.id,
+            event_id=triggered_event.event_id,
+            event_type=triggered_event.event_type.value,
+            event_context=triggered_event.context.value,
+            sector_id=player.current_sector,
+            turn_number=player.turn_counter,
+            event_data={'triggered_event': triggered_event.name},
+            outcome=outcome.__dict__
+        )
+        db.session.add(event_record)
+        
+        # Apply effects to player
+        if outcome.effects:
+            if 'health_damage' in outcome.effects:
+                player.health = max(0, player.health - outcome.effects['health_damage'])
+            if 'fuel_loss' in outcome.effects:
+                player.fuel = max(0, player.fuel - outcome.effects['fuel_loss'])
+            if 'credit_cost' in outcome.effects:
+                player.credits = max(0, player.credits - outcome.effects['credit_cost'])
+        
+        if outcome.rewards:
+            if 'credits' in outcome.rewards:
+                player.credits += outcome.rewards['credits']
+            if 'experience' in outcome.rewards:
+                player.add_experience(outcome.rewards['experience'])
+        
+        if outcome.penalties:
+            if 'health' in outcome.penalties:
+                player.health = max(0, player.health - outcome.penalties['health'])
+            if 'credits' in outcome.penalties:
+                player.credits = max(0, player.credits - outcome.penalties['credits'])
+            if 'fuel' in outcome.penalties:
+                player.fuel = max(0, player.fuel - outcome.penalties['fuel'])
+        
+        db.session.commit()
+        
+        return {
+            'event_triggered': True,
+            'event_name': triggered_event.name,
+            'event_description': triggered_event.description,
+            'outcome': outcome.__dict__
+        }
+    
+    return None
 
 @app.route('/')
 def index():
@@ -143,37 +261,76 @@ def game():
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """Get current game status"""
-    data = get_game_data()
-    return jsonify({
-        'success': True,
-        'player': data['player'],
-        'world': data['world'],
-        'inventory': data['inventory'],
-        'skills': data['skills'],
-        'reputation': data['reputation']
-    })
+    try:
+        player = get_current_player()
+        
+        # Update fog of war
+        update_fog_of_war(player)
+        
+        # Check for random events (low probability in status check)
+        event_result = None
+        if GAME_MODULES_AVAILABLE:
+            import random
+            if random.random() < 0.01:  # 1% chance per status check
+                event_result = check_random_events(player, EventContext.IN_SPACE)
+        
+        # Get inventory
+        inventory_items = [item.to_dict() for item in player.inventory]
+        
+        # Get discovered sectors for fog of war
+        discovered_sectors = [
+            v.sector_id for v in SectorVisibility.query.filter_by(
+                player_id=player.id, discovered=True
+            ).all()
+        ]
+        
+        response = {
+            'success': True,
+            'player': player.to_dict(),
+            'world': {
+                'current_location': player.current_location,
+                'discovered_sectors': discovered_sectors,
+                'turn_counter': player.turn_counter
+            },
+            'inventory': inventory_items,
+            'skills': player.skills,
+            'reputation': player.reputation
+        }
+        
+        if event_result:
+            response['random_event'] = event_result
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error getting status: {str(e)}'
+        }), 500
 
 @app.route('/api/travel', methods=['POST'])
 def travel():
     """Travel to a new sector"""
-    data = get_game_data()
+    player = get_current_player()
     json_data = request.get_json() or {}
     sector = int(json_data.get('sector', 0))
     
-    if not (1 <= sector <= 100):  # Expanded range for procedural sectors
+    if not (1 <= sector <= 1000):  # Expanded range for procedural sectors
         return jsonify(success=False, message='Invalid sector')
     
-    if data['player']['fuel'] < 10:
+    if player.fuel < 10:
         return jsonify(success=False, message='Insufficient fuel')
     
     # Update player location
-    data['player']['current_sector'] = sector
-    data['player']['fuel'] -= 10
-    data['world']['turn_counter'] += 1
+    player.current_sector = sector
+    player.fuel -= 10
+    player.turn_counter += 1
     
-    # Add to discovered sectors
-    if sector not in data['world']['discovered_sectors']:
-        data['world']['discovered_sectors'].append(sector)
+    # Update fog of war (this handles adding discovered sectors)
+    update_fog_of_war(player, sector)
+    
+    # Check for random events during travel
+    event_result = check_random_events(player, EventContext.TRAVEL)
     
     # Generate sector info if game modules available
     sector_info = {}
@@ -189,18 +346,25 @@ def travel():
             'stations': len(sector_data.stations)
         }
     
-    session.modified = True
-    return jsonify({
+    # Save changes to database
+    db.session.commit()
+    
+    response = {
         'success': True,
         'message': f"Jumped to Sector {sector}",
-        'player': data['player'],
+        'player': player.to_dict(),
         'sector_info': sector_info
-    })
+    }
+    
+    if event_result:
+        response['random_event'] = event_result
+    
+    return jsonify(response)
 
 @app.route('/api/trade', methods=['POST'])
 def trade():
     """Execute a trade transaction"""
-    data = get_game_data()
+    player = get_current_player()
     json_data = request.get_json() or {}
     item = json_data.get('item')
     quantity = int(json_data.get('quantity', 0))
@@ -210,7 +374,7 @@ def trade():
     if GAME_MODULES_AVAILABLE:
         systems = get_game_systems()
         markets = systems['dynamic_markets']
-        current_sector = data['player']['current_sector']
+        current_sector = player.current_sector
         
         # Initialize sector economy if needed
         if current_sector not in markets.sector_economies:
@@ -231,42 +395,56 @@ def trade():
     price = market_prices[item] * quantity
     
     if action == 'buy':
-        if data['player']['credits'] >= price:
-            data['player']['credits'] -= price
+        if player.credits >= price:
+            player.credits -= price
             
             # Add to inventory
-            for inv_item in data['inventory']:
-                if inv_item['name'] == item:
-                    inv_item['quantity'] += quantity
-                    break
-            else:
-                data['inventory'].append({'name': item, 'quantity': quantity})
+            inventory_item = InventoryItem.query.filter_by(
+                player_id=player.id, name=item
+            ).first()
             
-            session.modified = True
+            if inventory_item:
+                inventory_item.quantity += quantity
+            else:
+                inventory_item = InventoryItem(
+                    player_id=player.id,
+                    name=item,
+                    item_type='commodity',
+                    quantity=quantity,
+                    value=market_prices[item]
+                )
+                db.session.add(inventory_item)
+            
+            db.session.commit()
+            
             return jsonify({
                 'success': True,
                 'message': f"Bought {quantity} {item} for {price} credits",
-                'credits': data['player']['credits'],
-                'inventory': data['inventory']
+                'credits': player.credits,
+                'inventory': [item.to_dict() for item in player.inventory]
             })
         return jsonify(success=False, message='Insufficient credits')
     
     elif action == 'sell':
-        for inv_item in data['inventory']:
-            if inv_item['name'] == item and inv_item['quantity'] >= quantity:
-                inv_item['quantity'] -= quantity
-                data['player']['credits'] += price
-                
-                if inv_item['quantity'] <= 0:
-                    data['inventory'] = [i for i in data['inventory'] if i['name'] != item]
-                
-                session.modified = True
-                return jsonify({
-                    'success': True,
-                    'message': f"Sold {quantity} {item} for {price} credits",
-                    'credits': data['player']['credits'],
-                    'inventory': data['inventory']
-                })
+        inventory_item = InventoryItem.query.filter_by(
+            player_id=player.id, name=item
+        ).first()
+        
+        if inventory_item and inventory_item.quantity >= quantity:
+            inventory_item.quantity -= quantity
+            player.credits += price
+            
+            if inventory_item.quantity <= 0:
+                db.session.delete(inventory_item)
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f"Sold {quantity} {item} for {price} credits",
+                'credits': player.credits,
+                'inventory': [item.to_dict() for item in player.inventory]
+            })
         return jsonify(success=False, message='Insufficient inventory')
 
 @app.route('/api/market', methods=['GET'])
