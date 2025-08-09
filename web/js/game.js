@@ -5,12 +5,90 @@ class TerminalManager {
         this.screen = document.getElementById('terminal-screen');
         this.maxLines = 100;
         this.lineCount = 0;
+        this.commandHistory = [];
+        this.historyIndex = -1;
+        this.asciiArt = new ASCIIArtManager();
         
-        // Clear initial loading lines
+        // Clear initial loading lines and show startup sequence
         setTimeout(() => {
-            this.clear();
-            this.addLine('SYSTEM', 'Terminal initialized successfully', 'success');
+            this.playStartupSequence();
+        }, 500);
+        
+        this.setupCommandHistory();
+    }
+    
+    playStartupSequence() {
+        this.clear();
+        this.addASCIIArt('starship');
+        
+        setTimeout(() => {
+            this.addLine('SYSTEM', 'LOGDTW2002 Space Trading Terminal v2.0', 'success');
+            this.addLine('SYSTEM', 'Initializing quantum flux capacitors...', 'info');
+        }, 500);
+        
+        setTimeout(() => {
+            this.addProgressBar('Hyperdrive Systems', 100);
         }, 1000);
+        
+        setTimeout(() => {
+            this.addLine('SYSTEM', '✓ All systems nominal', 'success');
+            this.addLine('SYSTEM', 'Welcome aboard, Captain!', 'info');
+            this.addLine('HELP', 'Type "help" for available commands', 'info');
+        }, 2000);
+    }
+    
+    setupCommandHistory() {
+        const input = document.getElementById('terminal-command');
+        if (!input) return;
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.historyIndex < this.commandHistory.length - 1) {
+                    this.historyIndex++;
+                    input.value = this.commandHistory[this.commandHistory.length - 1 - this.historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.historyIndex > 0) {
+                    this.historyIndex--;
+                    input.value = this.commandHistory[this.commandHistory.length - 1 - this.historyIndex];
+                } else if (this.historyIndex === 0) {
+                    this.historyIndex = -1;
+                    input.value = '';
+                }
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                this.handleTabCompletion(input);
+            }
+        });
+    }
+    
+    handleTabCompletion(input) {
+        const commands = [
+            'help', 'status', 'jump', 'travel', 'scan', 'market', 'trade', 
+            'buy', 'sell', 'inventory', 'map', 'save', 'load', 'clear',
+            'credits', 'fuel', 'health', 'ship', 'galaxy', 'missions'
+        ];
+        
+        const currentValue = input.value.toLowerCase();
+        const matches = commands.filter(cmd => cmd.startsWith(currentValue));
+        
+        if (matches.length === 1) {
+            input.value = matches[0] + ' ';
+        } else if (matches.length > 1) {
+            this.addLine('HELP', `Possible commands: ${matches.join(', ')}`, 'info');
+        }
+    }
+    
+    addCommand(command) {
+        if (command && !this.commandHistory.includes(command)) {
+            this.commandHistory.push(command);
+            if (this.commandHistory.length > 50) {
+                this.commandHistory.shift();
+            }
+        }
+        this.historyIndex = -1;
     }
     
     addLine(prefix, text, type = 'info') {
@@ -101,11 +179,260 @@ class TerminalManager {
         this.screen.scrollTop = this.screen.scrollHeight;
     }
     
+    addASCIIArt(type) {
+        if (!this.screen) return;
+        
+        const art = this.asciiArt.getArt(type);
+        if (art) {
+            const artElement = document.createElement('div');
+            artElement.className = 'ascii-art';
+            artElement.innerHTML = `<pre>${art}</pre>`;
+            this.screen.appendChild(artElement);
+            this.screen.scrollTop = this.screen.scrollHeight;
+        }
+    }
+    
+    addAnimatedText(text, delay = 50) {
+        if (!this.screen) return;
+        
+        const line = document.createElement('div');
+        line.className = 'terminal-line animated-text';
+        
+        const prompt = document.createElement('span');
+        prompt.className = 'prompt';
+        prompt.textContent = 'SYSTEM>';
+        
+        const content = document.createElement('span');
+        content.className = 'terminal-text';
+        
+        line.appendChild(prompt);
+        line.appendChild(content);
+        this.screen.appendChild(line);
+        
+        // Animate text character by character
+        let i = 0;
+        const typeWriter = () => {
+            if (i < text.length) {
+                content.textContent += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, delay);
+            }
+        };
+        typeWriter();
+        
+        this.screen.scrollTop = this.screen.scrollHeight;
+    }
+    
+    addSeparator(char = '=', length = 50) {
+        if (!this.screen) return;
+        
+        const line = document.createElement('div');
+        line.className = 'terminal-line separator';
+        line.innerHTML = `<span class="terminal-text">${char.repeat(length)}</span>`;
+        this.screen.appendChild(line);
+        this.screen.scrollTop = this.screen.scrollHeight;
+    }
+    
+    addColoredText(text, colors = {}) {
+        if (!this.screen) return;
+        
+        const line = document.createElement('div');
+        line.className = 'terminal-line';
+        
+        let formattedText = text;
+        Object.entries(colors).forEach(([color, words]) => {
+            words.forEach(word => {
+                formattedText = formattedText.replace(
+                    new RegExp(word, 'gi'), 
+                    `<span style="color: var(--${color}-text)">${word}</span>`
+                );
+            });
+        });
+        
+        line.innerHTML = `<span class="terminal-text">${formattedText}</span>`;
+        this.screen.appendChild(line);
+        this.screen.scrollTop = this.screen.scrollHeight;
+    }
+    
     clear() {
         if (this.screen) {
             this.screen.innerHTML = '';
             this.lineCount = 0;
         }
+    }
+}
+
+class ASCIIArtManager {
+    constructor() {
+        this.artLibrary = {
+            starship: this.getStarshipArt(),
+            galaxy: this.getGalaxyArt(),
+            planet: this.getPlanetArt(),
+            explosion: this.getExplosionArt(),
+            credits: this.getCreditsArt(),
+            warning: this.getWarningArt(),
+            success: this.getSuccessArt(),
+            laser: this.getLaserArt(),
+            ship_damage: this.getShipDamageArt(),
+            trade: this.getTradeArt(),
+            logo: this.getLogoArt()
+        };
+    }
+    
+    getArt(type) {
+        return this.artLibrary[type] || null;
+    }
+    
+    getStarshipArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║           🚀 STARFARER               ║
+    ║                                       ║
+    ║        ___====-_  _-====___           ║
+    ║      _--^^^#####//      \\#####^^^--_  ║
+    ║   _-^##########// (    ) \\##########^-_ ║
+    ║  -############//  |\\^^/|  \\############- ║
+    ║ _/############//   (@::@)   \\############\\_ ║
+    ║/#############((     \\\\//     ))#############\\║
+    ║-###############\\\\    (oo)    //###############-║
+    ║-#################\\\\  / VV \\  //#################-║
+    ║-###################\\\\/    \\//###################-║
+    ║_#/|##########/\\######(    )######/\\##########|\\#_║
+    ║ |/ |#/\\#/\\#/\\/  \\#/\\##\  /##/\\#/  \\/\\#/\\#/\\#| \\| ║
+    ║ '  |/  V  V  '   V  \\#\\/#/  V   '  V  V  \\|  ' ║
+    ║    '   '  '      '   \\/\\/   '      '  '   '    ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getGalaxyArt() {
+        return `
+         ✦       .            ✦       .
+    .        ✦     .    ·      ✦    ·
+         .       ✧    ·    ✧       .
+    ✦     ·    .        ✦        .    ·
+       .    ·      GALAXY MAP      ·    .
+    ·    ✦         ≋≋≋≋≋≋≋≋≋≋         ✦    ·
+         .     ·                 ·     .
+    ✧      .    [1] -- [2] -- [3]    .      ✧
+        ·         |      |      |         ·
+    .      ✦     [4] -- [5] -- [6]     ✦      .
+         ·         |      |      |         ·
+    ✦       .    [7] -- [8] -- [9]    .       ✦
+        ·      ·                 ·      ·
+    ·    ✧         SECTORS 1-9         ✧    ·
+       .    ·                     ·    .
+    ✦     ·    .        ·        .    ·     ✦`;
+    }
+    
+    getPlanetArt() {
+        return `
+         .-"-.            .-"-.
+        /     \\          /     \\
+       | PLANET|        | MOON  |
+        \\     /          \\     /
+         '-.-'            '-.-'
+            \\                /
+             \\______________/
+             PLANETARY SYSTEM`;
+    }
+    
+    getExplosionArt() {
+        return `
+              💥 EXPLOSION! 💥
+        .     .       .  .   . .   .
+       . .   ..      .    .. . . .
+        \\  \\ | /     /  / . .  .
+         '\\\\ .' /  .'/'. ' .  .
+       ---==>*<==--- . ' \\\\  /
+         ./'  '\\'\\ '. . .\\ '/ 
+        '  /. | .\\  ' ..   .  .
+       .   . .  '     \\  ' . .   
+        . .   .  .    .    .   .`;
+    }
+    
+    getCreditsArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║  💰 GALACTIC CREDIT TRANSFER 💰      ║
+    ║                                       ║
+    ║     ████████████████████████████      ║
+    ║     ██                        ██      ║
+    ║     ██  💎 GALACTIC CREDITS 💎 ██      ║
+    ║     ██                        ██      ║
+    ║     ████████████████████████████      ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getWarningArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║  ⚠️  WARNING! DANGER DETECTED! ⚠️     ║
+    ║                                       ║
+    ║         🚨🚨🚨🚨🚨🚨🚨🚨🚨             ║
+    ║                                       ║
+    ║      ▲ THREAT LEVEL: ELEVATED ▲      ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getSuccessArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║         ✅ MISSION SUCCESS! ✅         ║
+    ║                                       ║
+    ║            🎉 🎉 🎉 🎉 🎉            ║
+    ║                                       ║
+    ║       ALL SYSTEMS OPERATIONAL!        ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getLaserArt() {
+        return `
+    ═══════════════════════════════════════════
+    ███████████████ LASER ENGAGED ███████████████
+    ▓▓▓▓▓▓▓▓▓▓▓ ━━━━━━━━━━━━━━━━━━━━━ ▓▓▓▓▓▓▓▓▓▓▓
+    ████████████ ⚡ FIRING SOLUTION ⚡ ████████████
+    ═══════════════════════════════════════════`;
+    }
+    
+    getShipDamageArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║         🔥 HULL BREACH! 🔥            ║
+    ║                                       ║
+    ║    ▓▓▓░░░▓▓▓  DAMAGE REPORT  ▓▓▓░░░▓▓▓   ║
+    ║                                       ║
+    ║      🚨 EMERGENCY SYSTEMS ACTIVE 🚨   ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getTradeArt() {
+        return `
+    ╔═══════════════════════════════════════╗
+    ║           🏪 TRADING POST 🏪          ║
+    ║                                       ║
+    ║  📦 ←→ 💰  GOODS EXCHANGE  💰 ←→ 📦   ║
+    ║                                       ║
+    ║     GALACTIC COMMERCE NETWORK         ║
+    ║                                       ║
+    ╚═══════════════════════════════════════╝`;
+    }
+    
+    getLogoArt() {
+        return `
+    ╔══════════════════════════════════════════════════════╗
+    ║    ██╗      ██████╗  ██████╗ ██████╗ ████████╗      ║
+    ║    ██║     ██╔═══██╗██╔════╝ ██╔══██╗╚══██╔══╝      ║
+    ║    ██║     ██║   ██║██║  ███╗██║  ██║   ██║         ║
+    ║    ██║     ██║   ██║██║   ██║██║  ██║   ██║         ║
+    ║    ███████╗╚██████╔╝╚██████╔╝██████╔╝   ██║         ║
+    ║    ╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝    ╚═╝         ║
+    ║                                                      ║
+    ║         🌌 TRADE WARS 2002 WEB EDITION 🌌           ║
+    ╚══════════════════════════════════════════════════════╝`;
     }
 }
 
@@ -572,6 +899,7 @@ class GameEngine {
         
         if (command) {
             this.terminal.addLine('CAPTAIN', command, 'command');
+            this.terminal.addCommand(command);
             this.processCommand(command);
             input.value = '';
         }
@@ -594,10 +922,12 @@ class GameEngine {
                 
             case 'jump':
             case 'travel':
+            case 'warp':
                 if (args[1]) {
                     this.travelToSector(parseInt(args[1]));
                 } else {
                     this.terminal.addLine('ERROR', 'Usage: jump <sector_number>', 'error');
+                    this.terminal.addLine('HELP', 'Available sectors: 1-1000', 'info');
                 }
                 break;
                 
@@ -607,14 +937,18 @@ class GameEngine {
                 
             case 'market':
             case 'trade':
+            case 'prices':
                 this.showMarket();
                 break;
                 
             case 'buy':
+            case 'purchase':
                 if (args[1] && args[2]) {
                     this.buyItem(args[1], parseInt(args[2]));
                 } else {
                     this.terminal.addLine('ERROR', 'Usage: buy <item> <quantity>', 'error');
+                    this.terminal.addLine('HELP', 'Example: buy food 10', 'info');
+                    this.showAvailableItems();
                 }
                 break;
                 
@@ -623,33 +957,350 @@ class GameEngine {
                     this.sellItem(args[1], parseInt(args[2]));
                 } else {
                     this.terminal.addLine('ERROR', 'Usage: sell <item> <quantity>', 'error');
+                    this.terminal.addLine('HELP', 'Example: sell iron 5', 'info');
+                    this.showInventory();
                 }
                 break;
                 
             case 'inventory':
             case 'inv':
+            case 'cargo':
                 this.showInventory();
                 break;
                 
             case 'map':
+            case 'galaxy':
                 this.showMap();
                 break;
                 
             case 'save':
-                this.saveGame();
+                if (args[1]) {
+                    this.saveGame(args[1]);
+                } else {
+                    this.saveGame();
+                }
                 break;
                 
             case 'load':
-                this.loadGame();
+                if (args[1]) {
+                    this.loadGame(args[1]);
+                } else {
+                    this.loadGame();
+                }
                 break;
                 
             case 'clear':
+            case 'cls':
                 this.terminal.clear();
+                this.terminal.addLine('SYSTEM', 'Terminal cleared', 'success');
+                break;
+                
+            case 'credits':
+            case 'money':
+                this.showCredits();
+                break;
+                
+            case 'fuel':
+                this.showFuelStatus();
+                break;
+                
+            case 'health':
+            case 'hp':
+                this.showHealth();
+                break;
+                
+            case 'ship':
+            case 'vessel':
+                this.showShipInfo();
+                break;
+                
+            case 'time':
+            case 'date':
+                this.showGameTime();
+                break;
+                
+            case 'missions':
+            case 'quests':
+                this.showMissionsCommand();
+                break;
+                
+            case 'refuel':
+                this.refuelShip();
+                break;
+                
+            case 'repair':
+                this.repairShip();
+                break;
+                
+            case 'combat':
+            case 'fight':
+                this.initiateCombat();
+                break;
+                
+            case 'hail':
+            case 'contact':
+                if (args[1]) {
+                    this.hailTarget(args.slice(1).join(' '));
+                } else {
+                    this.terminal.addLine('ERROR', 'Usage: hail <target>', 'error');
+                    this.terminal.addLine('HELP', 'Example: hail "Federation Patrol"', 'info');
+                }
+                break;
+                
+            case 'about':
+            case 'version':
+                this.showAbout();
+                break;
+                
+            case 'exit':
+            case 'quit':
+                this.terminal.addLine('SYSTEM', 'Use the browser close button to exit', 'info');
+                break;
+                
+            // Hidden easter egg commands
+            case 'konami':
+                this.easterEggKonami();
+                break;
+                
+            case 'hack':
+            case 'cheat':
+                this.easterEggHack();
                 break;
                 
             default:
-                this.terminal.addLine('ERROR', `Unknown command: ${cmd}. Type 'help' for available commands.`, 'error');
+                this.terminal.addLine('ERROR', `Unknown command: "${cmd}"`, 'error');
+                this.suggestCommand(cmd);
         }
+    }
+    
+    suggestCommand(cmd) {
+        const commands = [
+            'help', 'status', 'jump', 'scan', 'market', 'buy', 'sell', 'inventory',
+            'map', 'save', 'load', 'clear', 'credits', 'fuel', 'health', 'ship',
+            'missions', 'refuel', 'repair', 'combat', 'hail', 'about'
+        ];
+        
+        // Find similar commands using Levenshtein distance
+        const suggestions = commands.filter(command => {
+            return this.levenshteinDistance(cmd, command) <= 2;
+        }).slice(0, 3);
+        
+        if (suggestions.length > 0) {
+            this.terminal.addLine('HELP', `Did you mean: ${suggestions.join(', ')}?`, 'info');
+        } else {
+            this.terminal.addLine('HELP', 'Type "help" for available commands', 'info');
+        }
+    }
+    
+    levenshteinDistance(a, b) {
+        const matrix = [];
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1,
+                        matrix[i][j - 1] + 1,
+                        matrix[i - 1][j] + 1
+                    );
+                }
+            }
+        }
+        return matrix[b.length][a.length];
+    }
+    
+    showAvailableItems() {
+        this.terminal.addSeparator('-', 30);
+        this.terminal.addLine('MARKET', 'Available items for purchase:', 'info');
+        const items = ['food', 'iron', 'electronics', 'weapons', 'medicine', 'fuel'];
+        items.forEach(item => {
+            this.terminal.addLine('MARKET', `• ${item}`, 'info');
+        });
+        this.terminal.addSeparator('-', 30);
+    }
+    
+    showCredits() {
+        this.terminal.addASCIIArt('credits');
+        this.terminal.addLine('CREDITS', `Current Credits: ${this.formatNumber(this.player.credits || 0)}`, 'success');
+        this.terminal.addLine('CREDITS', 'Credits can be earned through trading and missions', 'info');
+    }
+    
+    showFuelStatus() {
+        const fuel = this.player.fuel || 0;
+        const maxFuel = this.player.max_fuel || 100;
+        const percentage = Math.round((fuel / maxFuel) * 100);
+        
+        this.terminal.addLine('FUEL', `Fuel Level: ${fuel}/${maxFuel} (${percentage}%)`, 'info');
+        this.terminal.addProgressBar('Fuel Status', percentage);
+        
+        if (percentage < 25) {
+            this.terminal.addLine('WARNING', '⚠️ LOW FUEL WARNING! ⚠️', 'warning');
+            this.terminal.addLine('FUEL', 'Consider refueling at the next station', 'warning');
+        }
+    }
+    
+    showHealth() {
+        const health = this.player.health || 100;
+        const maxHealth = this.player.max_health || 100;
+        const percentage = Math.round((health / maxHealth) * 100);
+        
+        this.terminal.addLine('HEALTH', `Health Status: ${health}/${maxHealth} (${percentage}%)`, 'info');
+        this.terminal.addProgressBar('Health Status', percentage);
+        
+        if (percentage < 50) {
+            this.terminal.addASCIIArt('ship_damage');
+            this.terminal.addLine('WARNING', '🚨 MEDICAL ATTENTION NEEDED 🚨', 'warning');
+        }
+    }
+    
+    showShipInfo() {
+        this.terminal.addASCIIArt('starship');
+        this.terminal.addLine('SHIP', `Ship Name: ${this.player.ship_name || 'Starfarer'}`, 'info');
+        this.terminal.addLine('SHIP', `Captain: ${this.player.name || 'Unknown'}`, 'info');
+        this.terminal.addLine('SHIP', `Ship Level: ${this.player.level || 1}`, 'info');
+        this.terminal.addLine('SHIP', `Experience: ${this.player.experience || 0} XP`, 'info');
+    }
+    
+    showGameTime() {
+        const turn = this.world?.turn_counter || 0;
+        const date = new Date();
+        this.terminal.addLine('TIME', `Current Turn: ${turn}`, 'info');
+        this.terminal.addLine('TIME', `Real Time: ${date.toLocaleString()}`, 'info');
+        this.terminal.addLine('TIME', `Galactic Standard Time: ${2402 + Math.floor(turn / 1000)}.${(turn % 1000).toString().padStart(3, '0')}`, 'info');
+    }
+    
+    showMissionsCommand() {
+        this.terminal.addLine('MISSIONS', 'Fetching available missions...', 'info');
+        this.sendRequest('missions', 'GET')
+            .then(response => {
+                if (response.success && response.missions) {
+                    this.terminal.addSeparator('=');
+                    this.terminal.addLine('MISSIONS', '=== AVAILABLE MISSIONS ===', 'info');
+                    
+                    if (response.missions.length === 0) {
+                        this.terminal.addLine('MISSIONS', 'No missions currently available', 'warning');
+                    } else {
+                        response.missions.forEach((mission, index) => {
+                            this.terminal.addLine('MISSIONS', `${index + 1}. ${mission.title}`, 'success');
+                            this.terminal.addLine('MISSIONS', `   ${mission.description}`, 'info');
+                            this.terminal.addLine('MISSIONS', `   Reward: ${mission.rewards.credits} credits`, 'accent');
+                            this.terminal.addSeparator('-', 30);
+                        });
+                    }
+                } else {
+                    this.terminal.addLine('ERROR', 'Failed to load missions', 'error');
+                }
+            })
+            .catch(error => {
+                this.terminal.addLine('ERROR', 'Mission request failed', 'error');
+            });
+    }
+    
+    refuelShip() {
+        this.terminal.addLine('SYSTEM', 'Initiating refuel sequence...', 'info');
+        this.terminal.addProgressBar('Refueling', 100);
+        
+        setTimeout(() => {
+            // Simulate refuel cost and update
+            const cost = 100;
+            if (this.player.credits >= cost) {
+                this.player.credits -= cost;
+                this.player.fuel = this.player.max_fuel;
+                this.terminal.addLine('SUCCESS', `✅ Refuel complete! Cost: ${cost} credits`, 'success');
+                this.ui.updatePlayerDisplay();
+            } else {
+                this.terminal.addLine('ERROR', 'Insufficient credits for refuel', 'error');
+            }
+        }, 2000);
+    }
+    
+    repairShip() {
+        this.terminal.addLine('SYSTEM', 'Initiating repair sequence...', 'info');
+        this.terminal.addProgressBar('Repairing', 100);
+        
+        setTimeout(() => {
+            const cost = 200;
+            if (this.player.credits >= cost) {
+                this.player.credits -= cost;
+                this.player.health = this.player.max_health;
+                this.terminal.addLine('SUCCESS', `✅ Repairs complete! Cost: ${cost} credits`, 'success');
+                this.ui.updatePlayerDisplay();
+            } else {
+                this.terminal.addLine('ERROR', 'Insufficient credits for repairs', 'error');
+            }
+        }, 3000);
+    }
+    
+    initiateCombat() {
+        this.terminal.addASCIIArt('laser');
+        this.terminal.addLine('COMBAT', 'Scanning for hostile targets...', 'warning');
+        
+        this.sendRequest('combat', 'POST', { action: 'scan' })
+            .then(response => {
+                if (response.success) {
+                    if (response.enemies_found) {
+                        this.terminal.addASCIIArt('warning');
+                        this.terminal.addLine('COMBAT', response.message, 'warning');
+                        this.terminal.addLine('COMBAT', 'Entering combat mode...', 'warning');
+                    } else {
+                        this.terminal.addLine('COMBAT', response.message, 'success');
+                    }
+                }
+            })
+            .catch(error => {
+                this.terminal.addLine('ERROR', 'Combat scanner malfunction', 'error');
+            });
+    }
+    
+    hailTarget(target) {
+        this.terminal.addLine('COMMS', `Hailing ${target}...`, 'info');
+        this.terminal.addLine('COMMS', 'Opening communication channel...', 'info');
+        
+        setTimeout(() => {
+            const responses = [
+                `"This is ${target}. State your business."`,
+                `"${target} here. What do you want?"`,
+                `"Greetings, Captain. This is ${target}."`,
+                `"${target} responding. How can we assist?"`,
+                `"No response from ${target}."`
+            ];
+            
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            this.terminal.addLine('COMMS', response, 'accent');
+        }, 1500);
+    }
+    
+    showAbout() {
+        this.terminal.addASCIIArt('logo');
+        this.terminal.addLine('ABOUT', 'LOGDTW2002 - Web Edition', 'success');
+        this.terminal.addLine('ABOUT', 'A space trading simulation game', 'info');
+        this.terminal.addLine('ABOUT', 'Inspired by Trade Wars 2002 and Legend of the Green Dragon', 'info');
+        this.terminal.addLine('ABOUT', 'Built with Flask, JavaScript, and ASCII art', 'info');
+        this.terminal.addLine('ABOUT', 'Version: 2.0.0-web', 'info');
+    }
+    
+    easterEggKonami() {
+        this.terminal.addLine('SYSTEM', 'Konami code detected!', 'success');
+        this.terminal.addLine('SYSTEM', '↑↑↓↓←→←→BA', 'accent');
+        this.terminal.addLine('SYSTEM', '+1000 credits bonus!', 'success');
+        this.player.credits += 1000;
+        this.ui.updatePlayerDisplay();
+    }
+    
+    easterEggHack() {
+        this.terminal.addLine('SYSTEM', 'Accessing mainframe...', 'warning');
+        this.terminal.addAnimatedText('Hacking in progress...');
+        
+        setTimeout(() => {
+            this.terminal.addLine('SYSTEM', 'Access denied. Nice try, Captain!', 'error');
+        }, 2000);
     }
     
     showHelp() {
@@ -887,22 +1538,19 @@ class GameEngine {
     }
     
     showMap() {
+        this.terminal.addASCIIArt('galaxy');
+        this.terminal.addSeparator('═');
         this.terminal.addLine('MAP', '=== GALAXY MAP ===', 'info');
         
-        const map = [
-            '    [1]--[2]--[3]',
-            '     |    |    |',
-            '    [4]--[5]--[6]',
-            '     |    |    |',
-            '    [7]--[8]--[9]',
-            '',
-            `Current Position: Sector ${this.player.current_sector}`,
-            'Use: jump <sector> to travel'
-        ];
+        this.terminal.addColoredText(
+            `Current Position: Sector ${this.player.current_sector} (You are here!)`,
+            { 'accent': [`Sector ${this.player.current_sector}`] }
+        );
         
-        map.forEach(line => {
-            this.terminal.addLine('MAP', line, 'info');
-        });
+        this.terminal.addLine('MAP', 'Available sectors: 1-1000', 'info');
+        this.terminal.addLine('MAP', 'Use: jump <sector> to travel', 'info');
+        this.terminal.addLine('MAP', 'Fuel cost: 10 units per jump', 'warning');
+        this.terminal.addSeparator('═');
     }
     
     saveGame(saveName = 'quicksave') {
