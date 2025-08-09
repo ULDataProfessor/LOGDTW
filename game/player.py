@@ -92,6 +92,9 @@ class Player:
         # Inventory
         self.inventory = []
         self.max_inventory = 20
+
+        # Crafting materials
+        self.materials: Dict[str, int] = {}
         
         # Ship information
         self.ship = {
@@ -240,7 +243,7 @@ class Player:
         """Add item to inventory"""
         if len(self.inventory) >= self.max_inventory:
             return False
-        
+
         self.inventory.append(item)
         return True
 
