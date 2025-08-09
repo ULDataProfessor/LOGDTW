@@ -447,6 +447,53 @@ class DynamicMarketSystem:
         
         self.active_events.append(event)
         print(f"🌟 Economic Event: {event.description}")
+
+    def trigger_event(self, event_type: EconomicEvent):
+        """Trigger a specific economic event.
+
+        The dynamic market system already supports random events internally.
+        This public method exposes the same functionality for external systems
+        such as the :class:`EventEngine` so that other gameplay systems can
+        cause market-wide disturbances.
+        """
+        if event_type == EconomicEvent.NONE:
+            return None
+
+        template = self.economic_event_templates.get(event_type)
+        if not template:
+            return None
+
+        duration = random.randint(*template["duration"])
+        event = EconomicEventData(
+            event_type=event_type,
+            affected_commodities=template["affected_commodities"],
+            price_modifiers=template["price_modifiers"],
+            supply_modifiers=template.get("supply_modifiers", {}),
+            demand_modifiers=template.get("demand_modifiers", {}),
+            duration=duration,
+            description=template["description"],
+            start_turn=self.current_turn,
+            sector_id=None,
+        )
+
+        self.active_events.append(event)
+
+        for commodity in event.affected_commodities:
+            if commodity in self.commodities:
+                price_mod = event.price_modifiers.get(commodity, 1.0)
+                self.commodities[commodity].event_modifier = price_mod
+
+                supply_mod = event.supply_modifiers.get(commodity, 1.0)
+                self.commodities[commodity].supply = int(
+                    self.commodities[commodity].supply * supply_mod
+                )
+
+                demand_mod = event.demand_modifiers.get(commodity, 1.0)
+                self.commodities[commodity].demand = int(
+                    self.commodities[commodity].demand * demand_mod
+                )
+
+        return event
     
     def _update_sector_economy(self, economy: SectorEconomy):
         """Update a sector's economic conditions"""
