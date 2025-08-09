@@ -44,6 +44,13 @@ A text-based adventure game that combines the RPG elements of Legend of the Gree
 - `data/` - Game data files
 - `utils/` - Utility functions and helpers
 
+## Documentation
+
+- [Dynamic Market System](docs/dynamic_market.md)
+- [Save System](docs/save_system.md)
+- [Mission Generator](docs/mission_generator.md)
+- [AI Counselor](docs/ai_counselor.md)
+
 ## Contributing
 
 Feel free to contribute by adding new features, fixing bugs, or improving the game mechanics!
