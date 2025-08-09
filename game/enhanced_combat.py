@@ -742,7 +742,10 @@ class EnhancedCombatSystem:
                 energy_cost=0
             )
         ]
-        
+
+        piloting_skill = player.get_skill_level("piloting")
+        leadership_skill = player.get_skill_level("leadership")
+
         return CombatShip(
             name=player.ship_name,
             hull=player.health,
@@ -753,8 +756,8 @@ class EnhancedCombatSystem:
             max_energy=player.max_energy,
             weapons=weapons,
             defenses=defenses,
-            agility=5 + player.get_skill_level("piloting"),
-            crew=player.get_skill_level("leadership") * 10 + 50,
+            agility=5 + piloting_skill,
+            crew=leadership_skill * 10 + 50,
             max_crew=100,
             special_abilities=[]
         )

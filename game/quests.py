@@ -163,7 +163,7 @@ class QuestSystem:
                 if player.credits < req_value:
                     return False
             elif req_type.endswith('_skill'):
-                skill_name = req_type.replace('_skill', '')
+                skill_name = req_type.replace('_skill', '').lower()
                 if player.get_skill_level(skill_name) < req_value:
                     return False
         

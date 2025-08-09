@@ -190,7 +190,19 @@ class Player:
         # Gain skill points
         for skill in self.skills.values():
             skill.gain_experience(random.randint(5, 15))
-    
+
+    def get_skill_level(self, skill_name: str) -> int:
+        """Retrieve the player's level in a given skill.
+
+        Args:
+            skill_name: Name of the skill to look up.
+
+        Returns:
+            The level of the skill if the player possesses it, otherwise 0.
+        """
+        skill = self.skills.get(skill_name.lower())
+        return skill.level if skill else 0
+
     def add_item(self, item: Item) -> bool:
         """Add item to inventory"""
         if len(self.inventory) >= self.max_inventory:
