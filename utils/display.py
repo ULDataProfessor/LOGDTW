@@ -70,7 +70,7 @@ class DisplayManager:
         status_table.add_row("Experience", f"{player.experience}/{player.experience_to_next}")
         
         self.console.print(status_table)
-    
+
     def show_detailed_status(self, player: Player):
         """Display detailed player status"""
         if not player:
@@ -148,7 +148,20 @@ class DisplayManager:
                     equipped_text += f"  {slot.title()}: None\n"
             
             self.console.print(equipped_text)
-    
+
+    def show_event_result(self, event: Dict):
+        """Display the outcome of a random event"""
+        if not event:
+            return
+
+        event_text = f"[bold magenta]{event.get('name', 'Event')}[/bold magenta]\n"
+        if event.get('description'):
+            event_text += f"{event['description']}\n"
+        if event.get('outcome'):
+            event_text += f"\n[bold]Outcome:[/bold] {event['outcome']}"
+
+        self.console.print(Panel(event_text, title="Event", border_style="magenta"))
+
     def show_location_description(self, location):
         """Display detailed location description"""
         if not location:
