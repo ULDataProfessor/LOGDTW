@@ -418,6 +418,65 @@ class GameEngine {
     }
 }
 
+// --- Advanced NPC System for Web Version ---
+class WebNPC {
+    constructor(name, type, personality, dialogue) {
+        this.name = name;
+        this.type = type;
+        this.personality = personality;
+        this.dialogue = dialogue;
+        this.relationships = {};
+    }
+
+    adjustRelationship(target, amount) {
+        this.relationships[target] = (this.relationships[target] || 0) + amount;
+    }
+
+    getLine(category) {
+        const lines = this.dialogue[category] || [];
+        return lines[Math.floor(Math.random() * lines.length)] || '';
+    }
+}
+
+const npcDatabase = {
+    commander: new WebNPC('Station Commander', 'official', 'neutral', {
+        greeting: ['Welcome to Alpha Station, Captain.'],
+        rumors: ['Federation patrols have increased in the core sectors.'],
+        farewell: ['Stay vigilant out there.']
+    }),
+    trader: new WebNPC('Trader McKenzie', 'trader', 'friendly', {
+        greeting: ['Looking for good deals on rare materials?'],
+        rumors: ['I have some rare Tritium crystals, but they do not come cheap.'],
+        farewell: ['Safe travels, friend.']
+    }),
+    mechanic: new WebNPC('Mechanic Jones', 'engineer', 'neutral', {
+        greeting: ['Your ship could use some upgrades.'],
+        rumors: ['Your engines are running a bit rough. Want me to tune them up?'],
+        farewell: ['Come back if you need more work done.']
+    })
+};
+
+function updateNPCsForEvents(events) {
+    events.forEach(event => {
+        Object.values(npcDatabase).forEach(npc => {
+            if (event === 'market_crash' && npc.type === 'trader') {
+                npc.dialogue.rumors.push('The market crash has traders nervous.');
+            }
+        });
+    });
+}
+
+// initialize with a sample world event
+updateNPCsForEvents(['market_crash']);
+
+// Story content for web version
+const storyContent = {
+    lore: [
+        { topic: 'Genesis Torpedo', content: 'A mythical weapon said to create worlds.' },
+        { topic: 'Old Earth', content: 'The birthplace of humanity and center of the Federation.' }
+    ]
+};
+
 // UI Action Functions (called from buttons)
 function executeCommand() {
     if (window.game) {
@@ -648,39 +707,36 @@ function showActiveMissions() {
 }
 
 function contactNPCs() {
-    const modal = new Modal('NPC Communications', `
-        <div class="npc-list">
+    const content = Object.entries(npcDatabase).map(([key, npc]) => `
             <div class="npc-item">
-                <h5>Station Commander</h5>
-                <p>"Welcome to Alpha Station, Captain."</p>
-                <button onclick="talkToNPC('commander')">Talk</button>
+                <h5>${npc.name}</h5>
+                <p>"${npc.getLine('greeting')}"</p>
+                <button onclick="talkToNPC('${key}')">Talk</button>
             </div>
-            <div class="npc-item">
-                <h5>Trader McKenzie</h5>
-                <p>"Looking for good deals on rare materials?"</p>
-                <button onclick="talkToNPC('trader')">Talk</button>
-            </div>
-            <div class="npc-item">
-                <h5>Mechanic Jones</h5>
-                <p>"Your ship could use some upgrades."</p>
-                <button onclick="talkToNPC('mechanic')">Talk</button>
-            </div>
-        </div>
-    `);
+    `).join('');
+    const modal = new Modal('NPC Communications', `<div class="npc-list">${content}</div>`);
     modal.show();
 }
 
-function talkToNPC(npcType) {
+function talkToNPC(npcKey) {
     closeModal();
     if (window.game) {
-        const dialogues = {
-            commander: "The trade routes have been dangerous lately. Be careful out there.",
-            trader: "I have some rare Tritium crystals, but they don't come cheap.",
-            mechanic: "Your engines are running a bit rough. Want me to tune them up?"
-        };
-        
-        window.game.terminal.addLine('NPC', dialogues[npcType], 'info');
+        const npc = npcDatabase[npcKey];
+        const line = npc.getLine('rumors');
+        window.game.terminal.addLine(npc.name, line, 'info');
+        npc.adjustRelationship('player', 1);
     }
+}
+
+function showLore() {
+    const entries = storyContent.lore.map(l => `
+        <div class="lore-item">
+            <h5>${l.topic}</h5>
+            <p>${l.content}</p>
+        </div>
+    `).join('');
+    const modal = new Modal('Galactic Lore', `<div class="lore-list">${entries}</div>`);
+    modal.show();
 }
 
 // Quick action functions

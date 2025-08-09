@@ -376,6 +376,7 @@ if (isset($_POST['action'])) {
                             <button class="action-btn" onclick="showMissions()">Available Missions</button>
                             <button class="action-btn" onclick="showActiveMissions()">Active Missions</button>
                             <button class="action-btn" onclick="contactNPCs()">Contact NPCs</button>
+                            <button class="action-btn" onclick="showLore()">Lore &amp; History</button>
                         </div>
                     </div>
                 </div>
