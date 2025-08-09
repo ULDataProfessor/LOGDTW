@@ -3,10 +3,10 @@ Trading system for LOGDTW2002
 Handles economy, trading, and market mechanics
 """
 
-import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from game.player import Player, Item
+from game.dynamic_markets import DynamicMarketSystem
 
 @dataclass
 class TradeGood:
@@ -27,6 +27,36 @@ class TradingSystem:
         self.location_markets = {}
         self.trade_history = []
         self.price_history = {}
+
+        # Dynamic market integration
+        self.dynamic_market = DynamicMarketSystem()
+        self.location_sectors: Dict[str, int] = {}
+        self.good_to_commodity = {
+            'Iron Ore': 'Iron',
+            'Gold': 'Gold',
+            'Platinum': 'Gold',
+            'Uranium': 'Tritium',
+            'Raw Minerals': 'Iron',
+            'Ammolite': 'Ammolite',
+            'Computer Chips': 'Electronics',
+            'Quantum Processors': 'AI Cores',
+            'Energy Cells': 'Energy Cells',
+            'Shield Generators': 'Military Hardware',
+            'Quantum Scanner': 'Electronics',
+            'Space Wine': 'Food',
+            'Alien Artifacts': 'Rare Compounds',
+            'Rare Gems': 'Gold',
+            'Stolen Cargo': 'Chemicals',
+            'Synthetic Food': 'Food',
+            'Fresh Vegetables': 'Grain',
+            'Exotic Spices': 'Spices',
+            'Med Kits': 'Medicine',
+            'Stimulants': 'Chemicals',
+            'Nanobots': 'Medical Equipment',
+            'Research Data': 'Software',
+            'Experimental Weapon': 'Weapons',
+            "Smuggler's Map": 'Software'
+        }
         
         # Initialize trade goods
         self._create_trade_goods()
@@ -127,33 +157,38 @@ class TradingSystem:
             }
         }
         
-        for location, market_data in markets_data.items():
+        for idx, (location, market_data) in enumerate(markets_data.items()):
             self.location_markets[location] = market_data
+            self.location_sectors[location] = idx
+            self.dynamic_market.initialize_sector_economy(
+                idx, specializations=[market_data['specialization']]
+            )
             self._update_market_prices(location, market_data)
     
     def _update_market_prices(self, location: str, market_data: Dict):
-        """Update prices for a specific location"""
+        """Update prices for a specific location using dynamic market data"""
         if location not in self.market_prices:
             self.market_prices[location] = {}
-        
+
+        sector_id = self.location_sectors.get(location, 0)
+        sector_prices = self.dynamic_market.get_sector_prices(sector_id)
+
         for good_name in market_data['available_goods']:
             if good_name in self.trade_goods:
                 good = self.trade_goods[good_name]
-                base_price = good.base_price
-                
+                commodity = self.good_to_commodity.get(good_name)
+                base_price = sector_prices.get(commodity, good.base_price)
+
                 # Apply location modifier
                 price_modifier = market_data['price_modifier']
-                
+
                 # Apply specialization bonus
                 if good.category == market_data['specialization']:
                     price_modifier *= 1.2
-                
-                # Add some randomness
-                random_factor = random.uniform(0.9, 1.1)
-                
-                final_price = int(base_price * price_modifier * random_factor)
+
+                final_price = int(base_price * price_modifier)
                 self.market_prices[location][good_name] = final_price
-                
+
                 # Store price history
                 if location not in self.price_history:
                     self.price_history[location] = {}
@@ -165,6 +200,13 @@ class TradingSystem:
         """Update prices for all markets"""
         for location, market_data in self.location_markets.items():
             self._update_market_prices(location, market_data)
+
+    def advance_market_turn(self, turns: int = 1):
+        """Advance the dynamic market and refresh local prices."""
+        for _ in range(turns):
+            next_turn = self.dynamic_market.current_turn + 1
+            self.dynamic_market.update_market(next_turn)
+        self._update_all_prices()
     
     def get_market_info(self, location: str) -> Dict:
         """Get market information for a location"""
@@ -228,7 +270,13 @@ class TradingSystem:
         
         # Deduct credits
         player.spend_credits(total_cost)
-        
+
+        # Update dynamic market
+        commodity_name = self.good_to_commodity.get(item_data['name'])
+        if commodity_name:
+            sector_id = self.location_sectors.get(location, 0)
+            self.dynamic_market.execute_trade(commodity_name, quantity, sector_id, is_purchase=True)
+
         # Record trade
         self._record_trade('buy', location, item_data['name'], quantity, total_cost)
         
@@ -270,7 +318,13 @@ class TradingSystem:
         
         # Add credits
         player.add_credits(total_earnings)
-        
+
+        # Update dynamic market
+        commodity_name = self.good_to_commodity.get(item_name)
+        if commodity_name:
+            sector_id = self.location_sectors.get(location, 0)
+            self.dynamic_market.execute_trade(commodity_name, quantity, sector_id, is_purchase=False)
+
         # Record trade
         self._record_trade('sell', location, item_name, quantity, total_earnings)
         
