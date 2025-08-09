@@ -705,7 +705,7 @@ class EnhancedCombatSystem:
         
         # Convert player weapons
         for item in player.inventory:
-            if item.type == "weapon":
+            if item.item_type == "weapon":
                 weapon = Weapon(
                     name=item.name,
                     type=WeaponType.LASER,  # Default type
