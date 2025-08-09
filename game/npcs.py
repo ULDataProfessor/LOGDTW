@@ -6,7 +6,19 @@ Handles NPCs, conversations, and interactive features
 import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+
 from game.player import Player
+from game.quests import QuestSystem
+
+
+@dataclass
+class DialogueNode:
+    """Represents a node within a dialogue tree."""
+
+    text: str
+    choices: Dict[str, str] = field(default_factory=dict)
+    quest_id: Optional[str] = None
+    faction_change: Optional[Dict[str, int]] = None
 
 @dataclass
 class NPC:
@@ -22,7 +34,7 @@ class NPC:
     reputation: int = 0  # -100 to 100
     personality_traits: Dict[str, int] = field(default_factory=dict)
     relationships: Dict[str, int] = field(default_factory=dict)
-    dialogue_tree: Dict[str, Dict] = field(default_factory=dict)
+    dialogue_tree: Dict[str, DialogueNode] = field(default_factory=dict)
     
     def __post_init__(self):
         if self.dialogue is None:
@@ -62,27 +74,34 @@ class NPCSystem:
             traits['aggression'] += 3
         return traits
 
-    def _create_dialogue_tree(self, dialogue: Dict[str, List[str]]) -> Dict[str, Dict]:
-        """Create a simple dialogue tree structure"""
-        return {
-            'start': {
-                'text': random.choice(dialogue.get('greeting', ['Hello.'])),
-                'options': {
-                    'rumors': {
-                        'text': 'Ask about rumors',
-                        'response': random.choice(dialogue.get('rumors', ['Nothing to share.']))
-                    },
-                    'secrets': {
-                        'text': 'Ask for secrets',
-                        'response': random.choice(dialogue.get('secrets', ['No secrets today.']))
-                    },
-                    'farewell': {
-                        'text': 'Say goodbye',
-                        'response': random.choice(dialogue.get('farewell', ['Farewell.']))
-                    }
-                }
-            }
+    def _create_dialogue_tree(self, dialogue: Dict[str, List[str]]) -> Dict[str, DialogueNode]:
+        """Create a simple dialogue tree structure using ``DialogueNode`` objects."""
+
+        start_text = random.choice(dialogue.get("greeting", ["Hello."]))
+        tree: Dict[str, DialogueNode] = {
+            "start": DialogueNode(
+                text=start_text,
+                choices={
+                    "Ask about rumors": "rumors",
+                    "Ask for secrets": "secrets",
+                    "Say goodbye": "farewell",
+                },
+            )
         }
+
+        tree["rumors"] = DialogueNode(
+            text=random.choice(dialogue.get("rumors", ["Nothing to share."])),
+            choices={"Back": "start"},
+        )
+        tree["secrets"] = DialogueNode(
+            text=random.choice(dialogue.get("secrets", ["No secrets today."])),
+            choices={"Back": "start"},
+        )
+        tree["farewell"] = DialogueNode(
+            text=random.choice(dialogue.get("farewell", ["Farewell."])),
+            choices={},
+        )
+        return tree
         
     def _create_npc_templates(self) -> Dict:
         """Create NPC templates with rich dialogue and hidden information"""
@@ -124,7 +143,31 @@ class NPCSystem:
                         "Ever wonder why some planets just... appear? The Federation doesn't want you to know."
                     ]
                 },
-                'services': ['trading', 'information', 'rumors']
+                'services': ['trading', 'information', 'rumors'],
+                'conversation': {
+                    'start': DialogueNode(
+                        text="Care to trade or looking for work?",
+                        choices={
+                            'Ask about work': 'offer',
+                            'Say goodbye': 'farewell'
+                        }
+                    ),
+                    'offer': DialogueNode(
+                        text="I need someone to deliver supplies to Luna Base. Interested?",
+                        choices={'Yes': 'accept', 'No': 'decline'}
+                    ),
+                    'accept': DialogueNode(
+                        text="Great! I'll mark the coordinates for you.",
+                        quest_id='delivery_001',
+                        choices={'Goodbye': 'farewell'}
+                    ),
+                    'decline': DialogueNode(
+                        text="Maybe next time then.",
+                        faction_change={'Traders': -5},
+                        choices={'Goodbye': 'farewell'}
+                    ),
+                    'farewell': DialogueNode(text="Safe travels, friend!", choices={})
+                }
             },
             'pirate': {
                 'personality': 'hostile',
@@ -316,6 +359,8 @@ class NPCSystem:
         """Create a new NPC"""
         template = self.npc_templates.get(npc_type, self.npc_templates['trader'])
 
+        dialogue_tree = template.get('conversation') or self._create_dialogue_tree(template['dialogue'])
+
         npc = NPC(
             name=name,
             npc_type=npc_type,
@@ -325,7 +370,7 @@ class NPCSystem:
             services=template['services'],
             faction=faction,
             personality_traits=self._generate_personality_traits(template['personality']),
-            dialogue_tree=self._create_dialogue_tree(template['dialogue'])
+            dialogue_tree=dialogue_tree
         )
         
         self.npcs[name] = npc
@@ -351,27 +396,81 @@ class NPCSystem:
         """Get all NPCs at a specific location"""
         return [npc for npc in self.npcs.values() if npc.location == location]
     
-    def start_conversation(self, player: Player, npc_name: str) -> Dict:
-        """Start a conversation with an NPC"""
+    def start_conversation(
+        self,
+        player: Player,
+        npc_name: str,
+        quest_system: Optional[QuestSystem] = None,
+        choices: Optional[List[str]] = None,
+    ) -> Dict:
+        """Start a conversation with an NPC using a dialogue tree.
+
+        Parameters
+        ----------
+        player: Player
+            The player engaging in conversation.
+        npc_name: str
+            Name of the NPC to talk to.
+        quest_system: QuestSystem, optional
+            Quest system to allow dialogue nodes to trigger quests.
+        choices: list[str], optional
+            Pre-determined choices for automated conversations (used in tests).
+
+        Returns
+        -------
+        dict
+            Contains conversation history and success state.
+        """
+
         if npc_name not in self.npcs:
-            return {'success': False, 'message': 'NPC not found'}
-        
+            return {"success": False, "message": "NPC not found"}
+
         npc = self.npcs[npc_name]
-        
-        # Check if player can talk to this NPC
-        if npc.personality == 'hostile' and player.reputation.get(npc.faction, 0) < -50:
-            return {'success': False, 'message': f'{npc.name} refuses to talk to you.'}
-        
-        # Generate greeting
-        greeting = random.choice(npc.dialogue.get('greeting', ['Hello there.']))
-        
-        return {
-            'success': True,
-            'npc': npc,
-            'greeting': greeting,
-            'personality': npc.personality,
-            'services': npc.services
-        }
+
+        if npc.personality == "hostile" and player.reputation.get(npc.faction, 0) < -50:
+            return {"success": False, "message": f"{npc.name} refuses to talk to you."}
+
+        history: List[str] = []
+        current = "start"
+        choice_iter = iter(choices) if choices else None
+
+        while current:
+            node = npc.dialogue_tree.get(current)
+            if not node:
+                break
+
+            history.append(f"{npc.name}: {node.text}")
+
+            if node.quest_id and quest_system:
+                quest_system.accept_quest(player, node.quest_id)
+            if node.faction_change:
+                for faction, change in node.faction_change.items():
+                    player.reputation[faction] = player.reputation.get(faction, 0) + change
+
+            if not node.choices:
+                break
+
+            options = list(node.choices.keys())
+            if choice_iter:
+                try:
+                    chosen_key = next(choice_iter)
+                except StopIteration:
+                    break
+                if chosen_key not in node.choices:
+                    break
+            else:
+                for idx, opt in enumerate(options, 1):
+                    print(f"{idx}. {opt}")
+                try:
+                    selection = int(input("Choose an option: ")) - 1
+                    chosen_key = options[selection]
+                except (ValueError, IndexError):
+                    print("Invalid choice.")
+                    continue
+
+            current = node.choices[chosen_key]
+
+        return {"success": True, "history": history, "npc": npc}
     
     def get_conversation_options(self, npc: NPC) -> List[str]:
         """Get available conversation options"""
