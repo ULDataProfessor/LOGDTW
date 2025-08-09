@@ -136,7 +136,6 @@ class Player:
             Item("Energy Shield", "Personal protective field", 40, "shield", defense=5),
             Item("Repair Tool", "Basic repair equipment", 20, "equipment"),
             Item("Navigation Computer", "Advanced navigation system", 60, "equipment"),
-            Item("Genesis Torpedo", "A device capable of creating a new planet.", 1000, "special")
         ]
         
         for item in starting_items:

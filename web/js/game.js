@@ -8,6 +8,7 @@ class GameEngine {
         this.ui = null;
         this.lastUpdate = Date.now();
         this.gameLoop = null;
+        this.token = null;
         
         this.init();
     }
@@ -19,8 +20,8 @@ class GameEngine {
         this.terminal = new TerminalManager();
         this.ui = new UIManager();
         
-        // Load initial game state
-        this.loadGameState();
+        // Establish session and load initial game state
+        this.ensureSession();
         
         // Start game loop
         this.startGameLoop();
@@ -30,10 +31,28 @@ class GameEngine {
         
         console.log('✅ Game initialized successfully');
     }
+
+    ensureSession() {
+        this.token = localStorage.getItem('session_token');
+        if (this.token) {
+            this.loadGameState();
+        } else {
+            fetch('/api/session', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    this.token = data.token;
+                    localStorage.setItem('session_token', this.token);
+                    this.loadGameState();
+                })
+                .catch(err => {
+                    console.error('Failed to establish session', err);
+                });
+        }
+    }
     
     loadGameState() {
         // Load player and world state from server
-        this.sendRequest('get_status')
+        this.sendRequest('status', 'GET')
             .then(response => {
                 if (response.success) {
                     this.player = response.player;
@@ -229,15 +248,16 @@ class GameEngine {
         
         this.terminal.addLine('SYSTEM', `Initiating jump to Sector ${sector}...`, 'info');
         
-        this.sendRequest('travel', { sector: sector })
+        this.sendRequest('travel', 'POST', { sector: sector })
             .then(response => {
                 if (response.success) {
                     this.player = response.player;
+                    this.world = response.world;
                     this.terminal.addLine('SYSTEM', response.message, 'success');
                     this.ui.updatePlayerDisplay();
                     this.scanSector();
                 } else {
-                    this.terminal.addLine('ERROR', response.message, 'error');
+                    this.terminal.addLine('ERROR', response.detail || response.message, 'error');
                 }
             })
             .catch(error => {
@@ -283,19 +303,19 @@ class GameEngine {
     buyItem(item, quantity) {
         const itemName = this.capitalizeFirst(item);
         
-        this.sendRequest('trade', {
+        this.sendRequest('trade', 'POST', {
             item: itemName,
             quantity: quantity,
             trade_action: 'buy'
         })
         .then(response => {
             if (response.success) {
-                this.player.credits = response.credits;
+                this.player = response.player;
                 this.terminal.addLine('TRADE', response.message, 'success');
                 this.ui.updatePlayerDisplay();
                 this.ui.updateInventory();
             } else {
-                this.terminal.addLine('ERROR', response.message, 'error');
+                this.terminal.addLine('ERROR', response.detail || response.message, 'error');
             }
         })
         .catch(error => {
@@ -306,19 +326,19 @@ class GameEngine {
     sellItem(item, quantity) {
         const itemName = this.capitalizeFirst(item);
         
-        this.sendRequest('trade', {
+        this.sendRequest('trade', 'POST', {
             item: itemName,
             quantity: quantity,
             trade_action: 'sell'
         })
         .then(response => {
             if (response.success) {
-                this.player.credits = response.credits;
+                this.player = response.player;
                 this.terminal.addLine('TRADE', response.message, 'success');
                 this.ui.updatePlayerDisplay();
                 this.ui.updateInventory();
             } else {
-                this.terminal.addLine('ERROR', response.message, 'error');
+                this.terminal.addLine('ERROR', response.detail || response.message, 'error');
             }
         })
         .catch(error => {
@@ -395,22 +415,29 @@ class GameEngine {
         this.terminal.addLine('SYSTEM', 'Auto-save completed', 'info');
     }
     
-    sendRequest(action, data = {}) {
-        return fetch('index.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                action: action,
-                ...data
-            })
-        })
-        .then(response => response.json())
-        .catch(error => {
-            console.error('Request failed:', error);
-            throw error;
-        });
+    sendRequest(endpoint, method = 'GET', data = {}) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.token) {
+            headers['X-Token'] = this.token;
+        }
+
+        const options = { method, headers };
+        let url = `/api/${endpoint}`;
+
+        if (method === 'GET') {
+            if (Object.keys(data).length > 0) {
+                url += `?${new URLSearchParams(data)}`;
+            }
+        } else {
+            options.body = JSON.stringify(data);
+        }
+
+        return fetch(url, options)
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Request failed:', error);
+                throw error;
+            });
     }
     
     capitalizeFirst(str) {
