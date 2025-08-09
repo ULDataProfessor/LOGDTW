@@ -35,6 +35,7 @@ from game.stock_market import StockMarket, BankingSystem
 from game.sos_system import SOSSystem
 from game.skills import Skill
 from game.ai_counselor import ShipCounselor
+from game.ship_customization import ShipCustomization
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
 from game.save_system import SaveGameSystem
@@ -171,6 +172,8 @@ class Game:
         
         [bold yellow]Ship & Equipment:[/bold yellow]
         - ship (show ship status)
+        - ship install [component] (install upgrade)
+        - ship remove [slot] (remove upgrade)
         - cargo (show cargo holds)
         - equip [item] (equip item)
         - unequip [slot] (unequip item)
@@ -199,6 +202,7 @@ class Game:
 map - Show map   jump - Sector jumping   market - Trading
 talk - NPCs      holodeck - Entertainment sos - Rescue missions
 stocks - Market  bank - Banking          ship - Ship status
+ship install/remove - Manage upgrades
 cargo - Cargo    skills - Skills         counselor - AI chat
 sectors - All sectors  sector - Current sector
         """
@@ -206,6 +210,7 @@ sectors - All sectors  sector - Current sector
 
     def _create_game_state(self):
         """Collect current game objects into a GameState"""
+        self.player.ship["upgrades"] = self.player.ship_customization.to_dict()
         return self.save_system.create_game_state(
             self.player,
             self.world,
@@ -226,10 +231,12 @@ sectors - All sectors  sector - Current sector
 
         pd = game_state.player_data
         self.player.name = pd.get("name", self.player.name)
-        self.player.ship_name = pd.get("ship_name", self.player.ship_name)
+        self.player.ship = pd.get("ship", self.player.ship)
+        self.player.ship_name = self.player.ship.get("name", self.player.ship_name)
         self.player.level = pd.get("level", self.player.level)
         self.player.credits = pd.get("credits", self.player.credits)
         self.player.experience = pd.get("experience", self.player.experience)
+        self.player.ship_customization = ShipCustomization(self.player.ship)
 
         wd = game_state.world_data
         self.world.current_sector = wd.get("current_sector", self.world.current_sector)
@@ -415,6 +422,10 @@ sectors - All sectors  sector - Current sector
                 elif command.lower().startswith('rescue'):
                     self.handle_rescue(command)
                 
+                elif command.lower().startswith('ship install'):
+                    self.handle_ship_install(command)
+                elif command.lower().startswith('ship remove'):
+                    self.handle_ship_remove(command)
                 elif command.lower() == 'ship':
                     self.show_ship_status()
                 
@@ -908,6 +919,37 @@ sectors - All sectors  sector - Current sector
         self.console.print(f"Shield Capacity: {ship['shield_capacity']}")
         self.console.print(f"Weapon Systems: {ship['weapon_systems']}")
         self.console.print(f"Engine Power: {ship['engine_power']}")
+        upgrades = ship.get('upgrades', {})
+        if upgrades:
+            self.console.print("Upgrades:")
+            for slot, name in upgrades.items():
+                self.console.print(f"  {slot}: {name}")
+        else:
+            self.console.print("No upgrades installed.")
+
+    def handle_ship_install(self, command):
+        """Install a ship upgrade component."""
+        parts = command.split()
+        if len(parts) < 3:
+            self.console.print("[red]Usage: ship install [component][/red]")
+            return
+        component = parts[2]
+        if self.player.install_upgrade(component):
+            self.console.print(f"[green]{component} installed.[/green]")
+        else:
+            self.console.print(f"[red]Failed to install {component}.[/red]")
+
+    def handle_ship_remove(self, command):
+        """Remove an installed ship upgrade."""
+        parts = command.split()
+        if len(parts) < 3:
+            self.console.print("[red]Usage: ship remove [slot][/red]")
+            return
+        slot = parts[2]
+        if self.player.remove_upgrade(slot):
+            self.console.print(f"[green]{slot} upgrade removed.[/green]")
+        else:
+            self.console.print(f"[red]No upgrade installed in {slot} slot.[/red]")
 
     def show_cargo(self):
         """Show cargo holds"""

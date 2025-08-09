@@ -103,6 +103,9 @@ class Player:
             'weapon_systems': 50,
             'engine_power': 100
         }
+
+        # Ship customization
+        self.ship_customization = ShipCustomization(self.ship)
         
         # Cargo holds
         self.cargo_holds = self._create_cargo_holds()
@@ -240,6 +243,15 @@ class Player:
         
         self.inventory.append(item)
         return True
+
+    # Ship upgrade interface
+    def install_upgrade(self, component_name: str) -> bool:
+        """Install a ship component upgrade."""
+        return self.ship_customization.install_component(component_name)
+
+    def remove_upgrade(self, slot: str) -> bool:
+        """Remove an installed ship component."""
+        return self.ship_customization.remove_component(slot)
     
     def remove_item(self, item_name: str, quantity: int = 1) -> Optional[Item]:
         """Remove item from inventory by name and quantity"""
