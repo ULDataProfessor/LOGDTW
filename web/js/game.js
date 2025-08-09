@@ -396,21 +396,32 @@ class GameEngine {
     }
     
     sendRequest(action, data = {}) {
-        return fetch('index.php', {
+        const endpoints = {
+            get_status: 'status',
+            travel: 'travel',
+            trade: 'trade'
+        };
+
+        const endpoint = endpoints[action];
+        const options = {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
             },
-            body: new URLSearchParams({
-                action: action,
-                ...data
-            })
-        })
-        .then(response => response.json())
-        .catch(error => {
-            console.error('Request failed:', error);
-            throw error;
-        });
+            body: JSON.stringify(data)
+        };
+
+        if (action === 'get_status') {
+            options.method = 'GET';
+            delete options.body;
+        }
+
+        return fetch(`/api/${endpoint}`, options)
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Request failed:', error);
+                throw error;
+            });
     }
     
     capitalizeFirst(str) {
