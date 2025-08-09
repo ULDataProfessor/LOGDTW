@@ -35,6 +35,7 @@ from game.stock_market import StockMarket, BankingSystem
 from game.sos_system import SOSSystem
 from game.skills import Skill
 from game.ai_counselor import ShipCounselor
+from game.save_system import SaveGameSystem, GameState
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
 
@@ -54,6 +55,7 @@ class Game:
         self.stock_market = None
         self.banking_system = None
         self.sos_system = None
+        self.save_system = SaveGameSystem()
         self.running = False
 
     def clear_screen(self):
@@ -99,9 +101,10 @@ class Game:
         menu_table.add_column("Description", style="white")
         
         menu_table.add_row("1", "Start New Game")
-        menu_table.add_row("2", "Load Game")
-        menu_table.add_row("3", "Help")
-        menu_table.add_row("4", "Quit")
+        menu_table.add_row("2", "Save Game")
+        menu_table.add_row("3", "Load Game")
+        menu_table.add_row("4", "Help")
+        menu_table.add_row("5", "Quit")
         
         self.console.print(menu_table)
         self.console.print("\n")
@@ -109,14 +112,16 @@ class Game:
     def get_menu_choice(self):
         """Get the player's menu choice"""
         while True:
-            choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4"])
+            choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4", "5"])
             if choice == "1":
                 return "new_game"
             elif choice == "2":
-                return "load_game"
+                self.save()
             elif choice == "3":
-                return "help"
+                self.load()
             elif choice == "4":
+                return "help"
+            elif choice == "5":
                 return "quit"
 
     def show_help(self):
@@ -200,6 +205,89 @@ sectors - All sectors  sector - Current sector
         """
         self.console.print(Panel(quick_help, title="Quick Help", border_style="green"))
 
+    def _create_game_state(self) -> GameState:
+        """Build a GameState object for saving"""
+        return GameState(
+            player_data={
+                'name': self.player.name,
+                'ship_name': self.player.ship_name,
+                'level': self.player.level,
+                'credits': self.player.credits,
+                'object': self.player
+            },
+            world_data={
+                'current_sector': getattr(self.world, 'current_sector', 1),
+                'object': self.world
+            },
+            mission_data={'object': self.quest_system},
+            npc_data={},
+            trading_data={'object': self.trading_system},
+            skill_data={},
+            combat_data={},
+            settings={},
+            statistics={},
+            achievements=[],
+            timestamp=time.time()
+        )
+
+    def save(self, save_name: str = None, auto: bool = False):
+        """Save the current game state"""
+        if not self.player or not self.world:
+            self.console.print("[red]No game in progress to save.[/red]")
+            return
+
+        game_state = self._create_game_state()
+        if auto:
+            save_id = "autosave"
+            overwrite = True
+        else:
+            save_id = save_name or Prompt.ask("Enter save name", default="save1")
+            overwrite = True
+        self.save_system.save_game(game_state, save_id, overwrite=overwrite)
+
+    def load(self):
+        """Load a saved game"""
+        saves = self.save_system.get_save_list()
+        if not saves:
+            self.console.print("[yellow]No saved games available.[/yellow]")
+            input("Press Enter to continue...")
+            return
+
+        table = Table(title="Saved Games", show_header=True, header_style="bold magenta")
+        table.add_column("No.")
+        table.add_column("Save ID")
+        table.add_column("Player")
+        for i, save in enumerate(saves, 1):
+            table.add_row(str(i), save.save_id, save.player_name)
+        self.console.print(table)
+
+        choice = Prompt.ask("Select a save", choices=[str(i) for i in range(1, len(saves) + 1)])
+        save_id = saves[int(choice) - 1].save_id
+        game_state = self.save_system.load_game(save_id)
+        if game_state:
+            self.player = game_state.player_data.get('object')
+            self.world = game_state.world_data.get('object')
+            self.quest_system = game_state.mission_data.get('object')
+            self.trading_system = game_state.trading_data.get('object')
+
+            # Reinitialize auxiliary systems
+            self.world_generator = WorldGenerator()
+            self.combat_system = CombatSystem()
+            self.npc_system = NPCSystem()
+            self.holodeck_system = HolodeckSystem()
+            self.stock_market = StockMarket()
+            self.banking_system = BankingSystem()
+            self.sos_system = SOSSystem()
+            self.counselor = ShipCounselor()
+
+            self.game_loop()
+
+    def _auto_save(self):
+        """Perform auto-save if enabled"""
+        if self.save_system.auto_save_enabled:
+            game_state = self._create_game_state()
+            self.save_system.auto_save(game_state)
+
     def initialize_game(self):
         """Initialize the game systems"""
         self.console.print("[bold green]Initializing game systems...[/bold green]")
@@ -244,6 +332,7 @@ sectors - All sectors  sector - Current sector
                     else:
                         self.console.print(f"[yellow]Jumping to {travel_status['destination']}... {travel_status['progress']:.1f}% complete[/yellow]")
                         time.sleep(1)
+                        self._auto_save()
                         continue
                 
                 # Check if on a planet surface
@@ -266,6 +355,7 @@ sectors - All sectors  sector - Current sector
                             self.console.print(f"[red]You can't move {direction} from here.[/red]")
                     else:
                         self.console.print("[yellow]Available commands: n/s/e/w to move, leave/orbit to return to space.[/yellow]")
+                    self._auto_save()
                     continue
                 
                 # Check if in holodeck
@@ -273,6 +363,7 @@ sectors - All sectors  sector - Current sector
                 if holodeck_status.get('active'):
                     self.console.print(f"[cyan]Holodeck: {holodeck_status['program'].name} - {holodeck_status['progress']:.1f}% complete[/cyan]")
                     time.sleep(1)
+                    self._auto_save()
                     continue
                 elif holodeck_status.get('completed'):
                     self.console.print(f"[green]{holodeck_status['message']}[/green]")
@@ -390,10 +481,16 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower().startswith('shipname'):
                     self.handle_ship_rename(command)
-                
+
                 elif command.lower() == 'skills':
                     self.show_skills()
-                
+
+                elif command.lower() == 'save':
+                    self.save()
+
+                elif command.lower() == 'load':
+                    self.load()
+
                 elif command.lower() == 'clear':
                     self.clear_screen()
                 
@@ -414,11 +511,13 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower() in ['counselor', 'ai']:
                     self.handle_counselor_interaction()
-                
+
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")
                     self.console.print("Type '?' for quick help or 'help' for full help.")
-                
+
+                self._auto_save()
+
             except KeyboardInterrupt:
                 if Confirm.ask("\nAre you sure you want to quit?"):
                     self.running = False
@@ -1014,9 +1113,6 @@ sectors - All sectors  sector - Current sector
             if choice == "new_game":
                 self.initialize_game()
                 self.game_loop()
-            elif choice == "load_game":
-                self.console.print("[yellow]Load game feature not yet implemented.[/yellow]")
-                input("Press Enter to continue...")
             elif choice == "help":
                 self.show_help()
             elif choice == "quit":
