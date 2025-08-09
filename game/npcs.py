@@ -4,7 +4,7 @@ Handles NPCs, conversations, and interactive features
 """
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from game.player import Player
 
@@ -20,6 +20,9 @@ class NPC:
     services: List[str] = None
     faction: str = "Neutral"
     reputation: int = 0  # -100 to 100
+    personality_traits: Dict[str, int] = field(default_factory=dict)
+    relationships: Dict[str, int] = field(default_factory=dict)
+    dialogue_tree: Dict[str, Dict] = field(default_factory=dict)
     
     def __post_init__(self):
         if self.dialogue is None:
@@ -29,6 +32,14 @@ class NPC:
         if self.services is None:
             self.services = []
 
+    def adjust_relationship(self, target: str, amount: int) -> None:
+        """Modify relationship score with player or other NPC"""
+        self.relationships[target] = self.relationships.get(target, 0) + amount
+
+    def get_relationship(self, target: str) -> int:
+        """Get current relationship score"""
+        return self.relationships.get(target, 0)
+
 class NPCSystem:
     """Handles NPC interactions and conversations"""
     
@@ -36,6 +47,42 @@ class NPCSystem:
         self.npcs = {}
         self.conversations = {}
         self.npc_templates = self._create_npc_templates()
+
+    def _generate_personality_traits(self, base: str) -> Dict[str, int]:
+        """Generate nuanced personality traits based on base personality"""
+        traits = {
+            'friendliness': random.randint(-5, 5),
+            'aggression': random.randint(-5, 5),
+            'intelligence': random.randint(1, 10),
+            'loyalty': random.randint(-5, 5),
+        }
+        if base == 'friendly':
+            traits['friendliness'] += 3
+        elif base == 'hostile':
+            traits['aggression'] += 3
+        return traits
+
+    def _create_dialogue_tree(self, dialogue: Dict[str, List[str]]) -> Dict[str, Dict]:
+        """Create a simple dialogue tree structure"""
+        return {
+            'start': {
+                'text': random.choice(dialogue.get('greeting', ['Hello.'])),
+                'options': {
+                    'rumors': {
+                        'text': 'Ask about rumors',
+                        'response': random.choice(dialogue.get('rumors', ['Nothing to share.']))
+                    },
+                    'secrets': {
+                        'text': 'Ask for secrets',
+                        'response': random.choice(dialogue.get('secrets', ['No secrets today.']))
+                    },
+                    'farewell': {
+                        'text': 'Say goodbye',
+                        'response': random.choice(dialogue.get('farewell', ['Farewell.']))
+                    }
+                }
+            }
+        }
         
     def _create_npc_templates(self) -> Dict:
         """Create NPC templates with rich dialogue and hidden information"""
@@ -268,7 +315,7 @@ class NPCSystem:
     def create_npc(self, name: str, npc_type: str, location: str, faction: str = "Neutral") -> NPC:
         """Create a new NPC"""
         template = self.npc_templates.get(npc_type, self.npc_templates['trader'])
-        
+
         npc = NPC(
             name=name,
             npc_type=npc_type,
@@ -276,11 +323,29 @@ class NPCSystem:
             location=location,
             dialogue=template['dialogue'],
             services=template['services'],
-            faction=faction
+            faction=faction,
+            personality_traits=self._generate_personality_traits(template['personality']),
+            dialogue_tree=self._create_dialogue_tree(template['dialogue'])
         )
         
         self.npcs[name] = npc
         return npc
+
+    def get_dialogue_options(self, npc: NPC, node: str = 'start') -> Dict[str, str]:
+        """Get available dialogue options for a given node"""
+        node_data = npc.dialogue_tree.get(node, {})
+        return {key: data['text'] for key, data in node_data.get('options', {}).items()}
+
+    def update_behavior(self, world_events: List[str]) -> None:
+        """Update NPC behavior based on global world events"""
+        for event in world_events:
+            for npc in self.npcs.values():
+                if event == 'market_crash' and npc.npc_type == 'trader':
+                    npc.dialogue.setdefault('rumors', []).append(
+                        'The market crash has everyone on edge.'
+                    )
+                if event == 'pirate_activity' and npc.npc_type == 'pirate':
+                    npc.adjust_relationship('player', -5)
     
     def get_npcs_at_location(self, location: str) -> List[NPC]:
         """Get all NPCs at a specific location"""
