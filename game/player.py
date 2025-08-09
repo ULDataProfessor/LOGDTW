@@ -160,10 +160,16 @@ class Player:
     def gain_experience(self, amount: int):
         """Gain experience points"""
         self.experience += amount
-        
+
         # Check for level up
         while self.experience >= self.experience_to_next:
             self.level_up()
+
+    def add_experience(self, amount: int) -> bool:
+        """Add experience and return True if a level up occurred."""
+        previous_level = self.level
+        self.gain_experience(amount)
+        return self.level > previous_level
     
     def level_up(self):
         """Level up the player"""
@@ -190,6 +196,11 @@ class Player:
         # Gain skill points
         for skill in self.skills.values():
             skill.gain_experience(random.randint(5, 15))
+
+    def get_skill_level(self, skill_name: str) -> int:
+        """Get the level of the specified skill, or 0 if not found."""
+        skill = self.skills.get(skill_name)
+        return skill.level if skill else 0
     
     def add_item(self, item: Item) -> bool:
         """Add item to inventory"""

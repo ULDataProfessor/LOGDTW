@@ -295,7 +295,7 @@ class CombatSystem:
         if not self.current_enemy or not self.player:
             return
         
-        # Give experience
+        # Give experience using player.add_experience wrapper
         exp_gained = self.current_enemy.experience_reward
         leveled_up = self.player.add_experience(exp_gained)
         
