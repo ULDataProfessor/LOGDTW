@@ -396,21 +396,24 @@ class GameEngine {
     }
     
     sendRequest(action, data = {}) {
-        return fetch('index.php', {
-            method: 'POST',
+        const url = `/api/${action}`;
+        const options = {
+            method: action === 'get_status' ? 'GET' : 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                action: action,
-                ...data
-            })
-        })
-        .then(response => response.json())
-        .catch(error => {
-            console.error('Request failed:', error);
-            throw error;
-        });
+                'Content-Type': 'application/json'
+            }
+        };
+
+        if (options.method === 'POST') {
+            options.body = JSON.stringify(data);
+        }
+
+        return fetch(url, options)
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Request failed:', error);
+                throw error;
+            });
     }
     
     capitalizeFirst(str) {
