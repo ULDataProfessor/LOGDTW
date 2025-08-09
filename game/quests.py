@@ -402,4 +402,4 @@ class QuestSystem:
             objectives=['Mine resources'],
             rewards={'experience': 80 + player_level * 15, 'credits': 200 + player_level * 30},
             difficulty=player_level
-        ) 
+        )
