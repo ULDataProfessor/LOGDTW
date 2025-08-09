@@ -100,8 +100,22 @@ class PlanetSurface:
 
 class World:
     """Game world with locations and navigation - TW2002 style"""
-    
-    def __init__(self):
+
+    def __init__(self, event_engine=None):
+        """Create a new world.
+
+        Parameters
+        ----------
+        event_engine : Optional[EventEngine]
+            If provided, travel actions will notify the event engine so it can
+            generate encounters or other dynamic events.  The parameter is
+            optional to maintain backwards compatibility with existing tests
+            and demos that instantiate ``World`` without an event system.
+        """
+
+        # Event engine hook
+        self.event_engine = event_engine
+
         self.locations = {}
         self.current_location = "Earth Station"
         self.player_coordinates = (0, 0, 0)
@@ -547,10 +561,16 @@ class World:
         self.current_location = destination
         self.player_coordinates = dest_location.coordinates
         self.space_sector = dest_location.sector
-        
+
         # Discover the sector
         self.discovered_sectors.add(dest_location.sector)
-        
+
+        # Notify event engine about travel completion
+        if self.event_engine:
+            # The event engine may generate encounters or other travel-related
+            # events.  Any returned event is handled internally by the engine.
+            self.event_engine.handle_travel(self, destination)
+
         return True
 
     def get_current_sector_display(self) -> Dict:
@@ -719,6 +739,18 @@ class World:
             'faction': dest_location.faction,
             'services': dest_location.services
         }
+
+    # ------------------------------------------------------------------
+    # Helper methods
+    # ------------------------------------------------------------------
+    def can_jump_to(self, destination: str) -> bool:
+        """Determine whether a jump to the given destination is possible."""
+        if destination not in self.locations:
+            return False
+        current_loc = self.get_current_location()
+        if not current_loc:
+            return False
+        return destination in current_loc.connections
 
     def can_trade(self) -> bool:
         """Check if trading is available at current location"""

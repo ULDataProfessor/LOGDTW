@@ -599,7 +599,7 @@ class StoryMissionManager:
 
 class MissionManager:
     """Main mission management system"""
-    
+
     def __init__(self):
         self.active_missions = {}
         self.completed_missions = []
@@ -608,7 +608,24 @@ class MissionManager:
         self.mission_generator = MissionGenerator()
         self.story_manager = StoryMissionManager()
         self.turn_counter = 0
-    
+
+    def generate_event_mission(self, sector_id: int) -> Mission:
+        """Generate a mission tied to a world event.
+
+        This helper is used by the :class:`EventEngine` to quickly produce a
+        mission when a dynamic event occurs (for example, investigating an
+        anomaly or responding to pirate activity).  The mission is added to the
+        pool of available missions and returned for further processing.
+        """
+        mission = self.mission_generator.generate_mission(
+            player_level=10,
+            player_location=sector_id,
+            player_reputation={},
+        )
+        mission.sector_id = sector_id
+        self.available_missions.append(mission)
+        return mission
+
     def update_turn(self):
         """Update missions at the end of each turn"""
         self.turn_counter += 1
