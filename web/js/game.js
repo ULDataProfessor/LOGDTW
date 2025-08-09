@@ -430,10 +430,18 @@ class GameEngine {
         const endpoints = {
             get_status: 'status',
             travel: 'travel',
-            trade: 'trade'
+            trade: 'trade',
+            market: 'market',
+            combat: 'combat',
+            missions: 'missions',
+            save_game: 'save',
+            load_game: 'load',
+            galaxy: 'galaxy'
         };
 
-        const endpoint = endpoints[action];
+        const endpoint = endpoints[action] || action;
+        const apiBase = window.API_BASE || '/api';
+        
         const options = {
             method: 'POST',
             headers: {
@@ -442,17 +450,34 @@ class GameEngine {
             body: JSON.stringify(data)
         };
 
-        if (action === 'get_status') {
+        // GET requests for certain endpoints
+        if (['get_status', 'market', 'missions', 'galaxy'].includes(action)) {
             options.method = 'GET';
             delete options.body;
         }
 
-        return fetch(`/api/${endpoint}`, options)
-            .then(response => response.json())
+        return fetch(`${apiBase}/${endpoint}`, options)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .catch(error => {
                 console.error('Request failed:', error);
+                this.updateConnectionStatus(false);
                 throw error;
             });
+    }
+    
+    updateConnectionStatus(connected) {
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+        
+        if (indicator && text) {
+            indicator.className = connected ? 'status-indicator online' : 'status-indicator offline';
+            text.textContent = connected ? 'Connected' : 'Disconnected';
+        }
     }
     
     capitalizeFirst(str) {
