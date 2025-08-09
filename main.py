@@ -23,11 +23,11 @@ init(autoreset=True)
 sys.path.append(os.path.join(os.path.dirname(__file__), 'game'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
-from game.player import Player
+from game.player import Player, Item
 from game.world import World
 from game.world_generator import WorldGenerator
 from game.combat import CombatSystem
-from game.trading import TradingSystem
+from game.dynamic_markets import DynamicMarketSystem
 from game.quests import QuestSystem
 from game.npcs import NPCSystem
 from game.holodeck import HolodeckSystem
@@ -262,7 +262,10 @@ sectors - All sectors  sector - Current sector
         
         # Initialize systems
         self.combat_system = CombatSystem()
-        self.trading_system = TradingSystem()
+        self.trading_system = DynamicMarketSystem()
+        # Initialize dynamic market sectors based on world locations
+        for loc in self.world.locations.values():
+            self.trading_system.initialize_sector_economy(loc.sector)
         self.quest_system = QuestSystem()
         self.npc_system = NPCSystem(self.quest_system, self.trading_system)
         self.holodeck_system = HolodeckSystem()
@@ -357,6 +360,8 @@ sectors - All sectors  sector - Current sector
                 
                 # Update systems
                 self.stock_market.update_market()
+                # Advance dynamic market simulation
+                self.trading_system.update_market(self.trading_system.current_turn + 1)
                 self.banking_system.update_interest()
                 self.sos_system.update_signals()
                 
@@ -720,63 +725,107 @@ sectors - All sectors  sector - Current sector
         action = parts[0].lower()
         item_name = parts[1]
         quantity = int(parts[2]) if len(parts) > 2 else 1
-        
-        current_location = self.world.get_current_location().name
-        
+
+        current_loc = self.world.get_current_location()
+        sector_id = current_loc.sector
+
+        prices = self.trading_system.get_sector_prices(sector_id)
+        if item_name not in prices:
+            self.console.print(f"[red]{item_name} not available in this market.[/red]")
+            return
+
+        price_per_unit = prices[item_name]
+        total_price = price_per_unit * quantity
+
         if action == 'buy':
-            result = self.trading_system.buy_item(self.player, current_location, item_name, quantity)
+            if self.player.credits < total_price:
+                self.console.print("[red]Not enough credits.[/red]")
+                return
+            trade = self.trading_system.execute_trade(item_name, quantity, sector_id, True)
+            if trade.get('success'):
+                self.player.credits -= total_price
+                for _ in range(quantity):
+                    self.player.add_item(Item(item_name, f"{item_name} commodity", price_per_unit, "trade_good"))
+                self.console.print(f"[green]Bought {quantity} {item_name} for {total_price} credits[/green]")
+            else:
+                self.console.print(f"[red]{trade.get('error', 'Trade failed')}[/red]")
         elif action == 'sell':
-            result = self.trading_system.sell_item(self.player, current_location, item_name, quantity)
+            owned = [i for i in self.player.inventory if i.name == item_name]
+            if len(owned) < quantity:
+                self.console.print("[red]You don't have enough to sell.[/red]")
+                return
+            trade = self.trading_system.execute_trade(item_name, quantity, sector_id, False)
+            if trade.get('success'):
+                self.player.credits += trade['price_per_unit'] * quantity
+                to_remove = quantity
+                for item in list(self.player.inventory):
+                    if item.name == item_name and to_remove > 0:
+                        self.player.inventory.remove(item)
+                        to_remove -= 1
+                self.console.print(f"[green]Sold {quantity} {item_name} for {trade['price_per_unit'] * quantity} credits[/green]")
+            else:
+                self.console.print(f"[red]{trade.get('error', 'Trade failed')}[/red]")
         else:
             self.console.print("[red]Invalid trading command.[/red]")
-            return
-        
-        if result['success']:
-            self.console.print(f"[green]{result['message']}[/green]")
-        else:
-            self.console.print(f"[red]{result['message']}[/red]")
 
     def show_market_info(self):
-        """Show market information"""
-        current_location = self.world.get_current_location().name
-        market_info = self.trading_system.get_market_info(current_location)
-        
-        if market_info['available']:
-            self.display.show_market_info(market_info)
-        else:
-            self.console.print("[red]No market available here.[/red]")
+        """Show market information using dynamic market system"""
+        current_location = self.world.get_current_location()
+        sector_id = current_location.sector
+        prices = self.trading_system.get_sector_prices(sector_id)
+
+        if not prices:
+            self.console.print("[red]No market data available here.[/red]")
+            return
+
+        self.console.print("\n[bold cyan]Market Prices[/bold cyan]")
+        self.console.print("=" * 40)
+        for name, price in prices.items():
+            self.console.print(f"{name}: {price} credits")
 
     def show_trade_routes(self):
-        """Show best trade routes"""
-        routes = self.trading_system.get_best_trade_routes(self.player)
-        
+        """Show best trade opportunities between connected sectors"""
+        current_location = self.world.get_current_location()
+        current_sector = current_location.sector
+        accessible_sectors = []
+        for name in current_location.connections:
+            if name in self.world.locations:
+                accessible_sectors.append(self.world.locations[name].sector)
+
+        routes = self.trading_system.get_best_trade_opportunities(current_sector, accessible_sectors)
+
         if not routes:
             self.console.print("[yellow]No profitable trade routes found.[/yellow]")
             return
-        
-        self.console.print("\n[bold cyan]Best Trade Routes[/bold cyan]")
+
+        self.console.print("\n[bold cyan]Best Trade Opportunities[/bold cyan]")
         self.console.print("=" * 50)
-        
+
         for i, route in enumerate(routes, 1):
-            self.console.print(f"\n[bold yellow]{i}. {route['item']}[/bold yellow]")
-            self.console.print(f"   Buy at {route['buy_location']}: {route['buy_price']} credits")
-            self.console.print(f"   Sell at {route['sell_location']}: {route['sell_price']} credits")
-            self.console.print(f"   Profit: {route['profit']} credits ({route['profit_margin']:.1f}%)")
+            self.console.print(f"\n[bold yellow]{i}. {route['commodity']}[/bold yellow]")
+            self.console.print(f"   Buy in Sector {route['buy_sector']}: {route['buy_price']} credits")
+            self.console.print(f"   Sell in Sector {route['sell_sector']}: {route['sell_price']} credits")
+            self.console.print(f"   Profit/unit: {route['profit_per_unit']} ({route['profit_margin']*100:.1f}% margin)")
 
     def show_trade_history(self):
         """Show trade history"""
-        history = self.trading_system.get_trade_history()
-        
+        history = []
+        for commodity, trades in self.trading_system.trade_volumes.items():
+            for trade in trades:
+                entry = trade.copy()
+                entry['commodity'] = commodity
+                history.append(entry)
+
         if not history:
             self.console.print("[yellow]No trade history available.[/yellow]")
             return
-        
+
         self.console.print("\n[bold cyan]Recent Trade History[/bold cyan]")
         self.console.print("=" * 50)
-        
-        for trade in history:
+
+        for trade in history[-10:]:
             action = "Bought" if trade['type'] == 'buy' else "Sold"
-            self.console.print(f"{action} {trade['quantity']} {trade['item']} at {trade['location']} for {trade['amount']} credits")
+            self.console.print(f"{action} {trade['quantity']} {trade['commodity']} in Sector {trade['sector']} for {trade['price']} credits")
 
     def handle_npc_interaction(self, command):
         """Handle NPC interactions"""
