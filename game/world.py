@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from game.player import Item
+from game.sos_system import SOSSystem
 
 @dataclass
 class Location:
@@ -129,10 +130,15 @@ class World:
         # Events and encounters
         self.encounters = []
         self.weather_conditions = "Clear"
-        
+
         # Map data
         self.map_data = self._create_map_data()
-        
+
+        # Events
+        self.event_templates = self._create_event_templates()
+        self.market_conditions = {}
+        self.sos_system = SOSSystem()
+
         self.on_planet_surface = False
         self.planet_surface = None
         
@@ -371,6 +377,32 @@ class World:
                 ('Pirate Haven', 'Outer Rim')
             ]
         }
+
+    def _create_event_templates(self) -> List[Dict]:
+        """Create templates for random sector events"""
+        return [
+            {
+                'name': 'Pirate Ambush',
+                'type': 'pirate',
+                'description': 'A band of pirates emerges from the shadows.',
+                'danger_min': 5,
+                'danger_max': 10
+            },
+            {
+                'name': 'Distress Call',
+                'type': 'distress',
+                'description': 'A faint distress signal is picked up by your sensors.',
+                'danger_min': 2,
+                'danger_max': 10
+            },
+            {
+                'name': 'Trading Opportunity',
+                'type': 'trade',
+                'description': 'Roaming merchants offer goods at competitive prices.',
+                'danger_min': 0,
+                'danger_max': 6
+            }
+        ]
         
     def _add_items_to_locations(self):
         """Add items to various locations"""
@@ -438,6 +470,10 @@ class World:
                 return True
         return False
 
+    def can_jump_to(self, destination: str) -> bool:
+        """Check if a location name is valid for instant jumps"""
+        return destination in self.locations
+
     def jump_to_sector(self, sector_number: int, player) -> Dict:
         """Jump to a connected sector (TW2002 style)"""
         if not self.can_jump_to_sector(sector_number):
@@ -483,6 +519,13 @@ class World:
             'connection_type': connection.connection_type
         }
 
+    def start_travel(self, destination: str, player) -> Dict:
+        """Begin travel using a destination name"""
+        if destination not in self.locations:
+            return {'success': False, 'message': f'Unknown destination {destination}'}
+        dest_sector = self.locations[destination].sector
+        return self.jump_to_sector(dest_sector, player)
+
     def update_jump(self, player) -> Dict:
         """Update jump progress"""
         if not self.is_traveling:
@@ -507,6 +550,15 @@ class World:
             'destination': self.travel_destination,
             'remaining_time': max(0, self.travel_time - elapsed_time)
         }
+
+    def update_travel(self, player) -> Dict:
+        """Update travel and trigger events on arrival"""
+        status = self.update_jump(player)
+        if status.get('arrived'):
+            event = self.trigger_event(player)
+            if event:
+                status['event'] = event
+        return status
 
     def _complete_jump(self, player):
         """Complete jump to destination"""
@@ -535,6 +587,53 @@ class World:
         self.travel_destination = None
         self.travel_progress = 0
         self.travel_time = 0
+
+    def trigger_event(self, player) -> Optional[Dict]:
+        """Trigger a random event based on sector danger level"""
+        location = self.get_current_location()
+        if not location:
+            return None
+
+        danger = location.danger_level
+        possible = [e for e in self.event_templates if e['danger_min'] <= danger <= e['danger_max']]
+
+        # 30% chance an event occurs
+        if not possible or random.random() > 0.3:
+            return None
+
+        event = random.choice(possible)
+        outcome = ""
+
+        if event['type'] == 'pirate':
+            damage = random.randint(5, 15)
+            player.health = max(0, player.health - damage)
+            location.danger_level = min(10, location.danger_level + 1)
+            outcome = f'Pirates attack your ship, dealing {damage} damage.'
+        elif event['type'] == 'distress':
+            signal = self.sos_system.generate_distress_signal(self.player_coordinates)
+            if signal:
+                outcome = f'Received distress call from {signal.ship_name} at {signal.coordinates}.'
+            else:
+                outcome = 'A distress call was detected but quickly faded.'
+        elif event['type'] == 'trade':
+            credits = random.randint(50, 150)
+            player.credits += credits
+            self.market_conditions[location.sector] = 'boom'
+            outcome = f'Profitable trade nets {credits} credits.'
+
+        result = {
+            'name': event['name'],
+            'description': event['description'],
+            'outcome': outcome
+        }
+
+        try:
+            from utils.display import DisplayManager
+            DisplayManager().show_event_result(result)
+        except Exception:
+            pass
+
+        return result
 
     def instant_jump(self, destination: str) -> bool:
         """Instant jump to a destination (for warp command)"""
