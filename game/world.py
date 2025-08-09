@@ -51,8 +51,29 @@ class PlanetSurface:
         self.name = name
         self.width = width
         self.height = height
-        self.grid = [[{'desc': f'Area ({x},{y})', 'items': [], 'npcs': []} for x in range(width)] for y in range(height)]
+        terrain_types = ['plains', 'forest', 'mountain', 'desert']
+        sample_items = [
+            Item("Herb Bundle", "Medicinal herbs", 5, "resource"),
+            Item("Ancient Relic", "A mysterious artifact", 100, "quest")
+        ]
+        sample_npcs = ["Trader", "Explorer", "Scientist"]
+        self.grid = []
+        for y in range(height):
+            row = []
+            for x in range(width):
+                tile = {
+                    'desc': f'Area ({x},{y})',
+                    'terrain': random.choice(terrain_types),
+                    'items': [random.choice(sample_items)] if random.random() < 0.1 else [],
+                    'npcs': [random.choice(sample_npcs)] if random.random() < 0.1 else [],
+                    'resource': random.choice([None, 'ore', 'crystals', 'herbs', None]),
+                    'encounter': random.choice([None, 'alien_raider', None, 'space_pirate', None]),
+                    'explored': False
+                }
+                row.append(tile)
+            self.grid.append(row)
         self.player_pos = (width // 2, height // 2)  # Start in the center
+        self.grid[self.player_pos[1]][self.player_pos[0]]['explored'] = True
 
     def move(self, direction):
         x, y = self.player_pos
@@ -65,9 +86,24 @@ class PlanetSurface:
         elif direction == 'east' and x < self.width - 1:
             x += 1
         else:
-            return False  # Can't move
+            return {'moved': False, 'events': []}  # Can't move
+
         self.player_pos = (x, y)
-        return True
+        tile = self.grid[y][x]
+        tile['explored'] = True
+
+        events = []
+        if tile.get('encounter'):
+            events.append({'type': 'combat', 'enemy_type': tile['encounter']})
+            tile['encounter'] = None
+        if tile.get('items'):
+            events.append({'type': 'item', 'items': tile['items']})
+        if tile.get('npcs'):
+            events.append({'type': 'npc', 'npcs': tile['npcs']})
+        if tile.get('resource'):
+            events.append({'type': 'resource', 'resource': tile['resource']})
+
+        return {'moved': True, 'events': events}
 
     def get_adjacent(self):
         x, y = self.player_pos
@@ -94,8 +130,10 @@ class PlanetSurface:
                 if (x, y) == self.player_pos:
                     row += '[bold red]X[/bold red]'
                 else:
-                    row += '.'
+                    tile = self.grid[y][x]
+                    row += '.' if tile.get('explored') else '?'
             map_str += row + '\n'
+        map_str += "Legend: [bold red]X[/bold red]=Player, .=Explored, ?=Unexplored\n"
         return map_str
 
 class World:
@@ -106,7 +144,7 @@ class World:
         self.current_location = "Earth Station"
         self.player_coordinates = (0, 0, 0)
         self.current_sector = 1  # Current sector number
-        self.discovered_sectors = {1}  # Track discovered sectors
+        self.discovered_sectors = {1, self._sector_name(1)}  # Track discovered sectors
         self.sector_connections = {}  # Sector connections with types
         self.sector_factions = {}  # Faction control of sectors
         self.traveling = False
@@ -407,6 +445,17 @@ class World:
         """Get the current location object"""
         return self.locations.get(self.current_location)
 
+    def _sector_name(self, number: int) -> str:
+        names = {1: "Alpha", 2: "Beta", 3: "Gamma", 4: "Delta"}
+        return names.get(number, f"Sector {number}")
+
+    def can_jump_to(self, destination: str) -> bool:
+        """Check if player can jump to a destination by name"""
+        if destination not in self.locations:
+            return False
+        sector = self.locations[destination].sector
+        return self.can_jump_to_sector(sector)
+
     def get_available_jumps(self) -> List[Dict]:
         """Get available sector jumps from current sector (TW2002 style)"""
         if self.current_sector not in self.sector_connections:
@@ -473,6 +522,7 @@ class World:
         
         # Discover the sector
         self.discovered_sectors.add(sector_number)
+        self.discovered_sectors.add(self._sector_name(sector_number))
         
         return {
             'success': True,
@@ -550,6 +600,7 @@ class World:
         
         # Discover the sector
         self.discovered_sectors.add(dest_location.sector)
+        self.discovered_sectors.add(self._sector_name(dest_location.sector))
         
         return True
 
@@ -798,7 +849,7 @@ class World:
     def move_on_surface(self, direction):
         if self.on_planet_surface and self.planet_surface:
             return self.planet_surface.move(direction)
-        return False
+        return {'moved': False, 'events': []}
 
     def get_surface_adjacent(self):
         if self.on_planet_surface and self.planet_surface:
@@ -814,6 +865,42 @@ class World:
         if self.on_planet_surface and self.planet_surface:
             return self.planet_surface.get_map()
         return ''
+
+    def collect_surface_item(self, player, item_name):
+        if self.on_planet_surface and self.planet_surface:
+            tile = self.planet_surface.get_current_area()
+            for item in list(tile.get('items', [])):
+                if item.name.lower() == item_name.lower():
+                    if player.add_item(item):
+                        tile['items'].remove(item)
+                        return {'success': True, 'message': f'Collected {item.name}.'}
+                    else:
+                        return {'success': False, 'message': 'Inventory full.'}
+            return {'success': False, 'message': 'Item not found here.'}
+        return {'success': False, 'message': 'You are not on a planetary surface.'}
+
+    def talk_to_surface_npc(self, npc_name):
+        if self.on_planet_surface and self.planet_surface:
+            tile = self.planet_surface.get_current_area()
+            for npc in tile.get('npcs', []):
+                if npc.lower() == npc_name.lower():
+                    return {'success': True, 'message': f'You talk to {npc}.'}
+            return {'success': False, 'message': 'No such NPC here.'}
+        return {'success': False, 'message': 'You are not on a planetary surface.'}
+
+    def collect_surface_resource(self, player):
+        if self.on_planet_surface and self.planet_surface:
+            tile = self.planet_surface.get_current_area()
+            resource = tile.get('resource')
+            if resource:
+                item = Item(name=resource.title(), description=f'{resource} gathered from surface', value=10, item_type='resource')
+                if player.add_item(item):
+                    tile['resource'] = None
+                    return {'success': True, 'message': f'Gathered {resource}.'}
+                else:
+                    return {'success': False, 'message': 'Inventory full.'}
+            return {'success': False, 'message': 'No resource node here.'}
+        return {'success': False, 'message': 'You are not on a planetary surface.'}
 
     def is_on_planet_surface(self):
         return self.on_planet_surface

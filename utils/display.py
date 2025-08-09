@@ -477,7 +477,16 @@ class DisplayManager:
         area = world.get_surface_area()
         if area:
             desc = area.get('desc', 'Unknown area')
-            self.console.print(f"[bold cyan]Current Area:[/bold cyan] {desc}")
+            terrain = area.get('terrain', 'unknown')
+            self.console.print(f"[bold cyan]Current Area:[/bold cyan] {desc} ({terrain})")
+            if area.get('items'):
+                item_names = ', '.join([item.name for item in area['items']])
+                self.console.print(f"[green]Items:[/green] {item_names}")
+            if area.get('npcs'):
+                npc_names = ', '.join(area['npcs'])
+                self.console.print(f"[cyan]NPCs:[/cyan] {npc_names}")
+            if area.get('resource'):
+                self.console.print(f"[yellow]Resource Node:[/yellow] {area['resource']}")
 
     def show_planet_surface_instructions(self, world):
         """Show contextual instructions for planetary surface movement"""
@@ -485,7 +494,7 @@ class DisplayManager:
         if adj:
             adj_text = "[bold cyan]You can move:[/bold cyan] " + ', '.join([dir.title() for dir in adj.keys()])
             self.console.print(adj_text)
-        self.console.print("[yellow]Use n/s/e/w to move, 'leave' or 'orbit' to return to space. Type 'look' to examine area.[/yellow]")
+        self.console.print("[yellow]Use n/s/e/w to move, 'take <item>' to pick up, 'talk <npc>' to interact, 'gather' to collect resources, 'leave' or 'orbit' to return to space. Type 'look' to examine area.[/yellow]")
     
     def show_tw2002_sector_display(self, world):
         """Display TW2002-style sector information"""
