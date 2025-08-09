@@ -1,4 +1,15 @@
-from fastapi import FastAPI
+"""FastAPI service for LOGDTW web application.
+
+This module now exposes a FastAPI application that serves both the JSON API
+used by the game frontend and the static files that make up the web client.
+
+The API endpoints are all mounted under the ``/api`` prefix so the
+front‑end's fetch requests to paths like ``/api/status`` resolve correctly.
+Static assets in the ``web`` directory are served at the root path.
+"""
+
+from fastapi import APIRouter, FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # ---------------------------------------------------------------------------
@@ -50,7 +61,8 @@ def reset_game_state():
     game_state = _default_state()
 
 
-app = FastAPI(title="LOGDTW API")
+app = FastAPI(title="LOGDTW Web App")
+api_router = APIRouter(prefix="/api")
 
 
 class TravelRequest(BaseModel):
@@ -63,7 +75,7 @@ class TradeRequest(BaseModel):
     trade_action: str  # "buy" or "sell"
 
 
-@app.get("/status")
+@api_router.get("/status")
 def get_status():
     """Return current player and world state."""
     return {
@@ -73,7 +85,7 @@ def get_status():
     }
 
 
-@app.post("/travel")
+@api_router.post("/travel")
 def travel(req: TravelRequest):
     sector = req.sector
     if 1 <= sector <= 20:
@@ -100,7 +112,7 @@ MARKET_PRICES = {
 }
 
 
-@app.post("/trade")
+@api_router.post("/trade")
 def trade(req: TradeRequest):
     item = req.item
     quantity = req.quantity
@@ -142,3 +154,12 @@ def trade(req: TradeRequest):
         return {"success": False, "message": "Not enough items"}
 
     return {"success": False, "message": "Invalid trade action"}
+
+
+# ---------------------------------------------------------------------------
+# Application assembly
+# ---------------------------------------------------------------------------
+
+app.include_router(api_router)
+app.mount("/", StaticFiles(directory="web", html=True), name="web")
+

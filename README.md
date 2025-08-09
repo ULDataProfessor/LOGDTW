@@ -24,6 +24,17 @@ A text-based adventure game that combines the RPG elements of Legend of the Gree
    python main.py
    ```
 
+## Web App
+
+An experimental web interface is also available. Start the FastAPI server
+and open your browser to interact with the game UI:
+
+```bash
+uvicorn service:app --reload
+```
+
+Then visit http://localhost:8000/ to play in the browser.
+
 ## Game Controls
 
 - **Movement**: Use cardinal directions (north, south, east, west) or shortcuts (n, s, e, w)
