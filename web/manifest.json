@@ -1,0 +1,20 @@
+{
+  "name": "LOGDTW2002",
+  "short_name": "LOGDTW",
+  "description": "Legend of the Green Dragon meets Trade Wars 2002 - Web Edition",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0e27",
+  "theme_color": "#64ffda",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
+
