@@ -104,9 +104,10 @@ class Game:
         menu_table.add_column("Description", style="white")
         
         menu_table.add_row("1", "Start New Game")
-        menu_table.add_row("2", "Load Game")
-        menu_table.add_row("3", "Help")
-        menu_table.add_row("4", "Quit")
+        menu_table.add_row("2", "Save Game")
+        menu_table.add_row("3", "Load Game")
+        menu_table.add_row("4", "Help")
+        menu_table.add_row("5", "Quit")
         
         self.console.print(menu_table)
         self.console.print("\n")
@@ -114,14 +115,16 @@ class Game:
     def get_menu_choice(self):
         """Get the player's menu choice"""
         while True:
-            choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4"])
+            choice = Prompt.ask("Select an option", choices=["1", "2", "3", "4", "5"])
             if choice == "1":
                 return "new_game"
             elif choice == "2":
-                return "load_game"
+                self.save()
             elif choice == "3":
-                return "help"
+                self.load()
             elif choice == "4":
+                return "help"
+            elif choice == "5":
                 return "quit"
 
     def show_help(self):
@@ -290,6 +293,7 @@ sectors - All sectors  sector - Current sector
                     else:
                         self.console.print(f"[yellow]Jumping to {travel_status['destination']}... {travel_status['progress']:.1f}% complete[/yellow]")
                         time.sleep(1)
+                        self._auto_save()
                         continue
                 
                 # Check if on a planet surface
@@ -345,6 +349,7 @@ sectors - All sectors  sector - Current sector
                 if holodeck_status.get('active'):
                     self.console.print(f"[cyan]Holodeck: {holodeck_status['program'].name} - {holodeck_status['progress']:.1f}% complete[/cyan]")
                     time.sleep(1)
+                    self._auto_save()
                     continue
                 elif holodeck_status.get('completed'):
                     self.console.print(f"[green]{holodeck_status['message']}[/green]")
@@ -466,7 +471,7 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower().startswith('shipname'):
                     self.handle_ship_rename(command)
-                
+
                 elif command.lower() == 'skills':
                     self.show_skills()
                 elif command.lower() == 'save':
@@ -508,11 +513,13 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower() in ['counselor', 'ai']:
                     self.handle_counselor_interaction()
-                
+
                 else:
                     self.console.print(f"[red]Unknown command: {command}[/red]")
                     self.console.print("Type '?' for quick help or 'help' for full help.")
-                
+
+                self._auto_save()
+
             except KeyboardInterrupt:
                 if Confirm.ask("\nAre you sure you want to quit?"):
                     self.running = False
