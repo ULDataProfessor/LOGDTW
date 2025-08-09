@@ -262,22 +262,30 @@ class GameEngine {
     }
     
     showMarket() {
-        this.terminal.addLine('MARKET', '=== MARKET PRICES ===', 'info');
-        
-        const market = {
-            'Food': 50,
-            'Iron': 100,
-            'Electronics': 300,
-            'Weapons': 800,
-            'Medicine': 400,
-            'Fuel': 75
-        };
-        
-        Object.entries(market).forEach(([item, price]) => {
-            this.terminal.addLine('MARKET', `${item.padEnd(12)} ${price} credits`, 'info');
-        });
-        
-        this.terminal.addLine('MARKET', 'Use: buy <item> <quantity> or sell <item> <quantity>', 'info');
+        // Request market info from the server so we can show current
+        // conditions as well as prices.
+        this.sendRequest('market_info')
+            .then(response => {
+                if (!response.success) {
+                    this.terminal.addLine('ERROR', 'Market data unavailable', 'error');
+                    return;
+                }
+
+                const market = response.market || {};
+                const condition = (market.market_condition || 'unknown').toUpperCase();
+                this.terminal.addLine('MARKET', `=== MARKET (${condition}) ===`, 'info');
+
+                if (market.goods) {
+                    market.goods.forEach(good => {
+                        this.terminal.addLine('MARKET', `${good.name.padEnd(12)} ${good.price} credits`, 'info');
+                    });
+                }
+
+                this.terminal.addLine('MARKET', 'Use: buy <item> <quantity> or sell <item> <quantity>', 'info');
+            })
+            .catch(() => {
+                this.terminal.addLine('ERROR', 'Market request failed', 'error');
+            });
     }
     
     buyItem(item, quantity) {
