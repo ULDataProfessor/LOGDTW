@@ -207,7 +207,9 @@ class TradingSystem:
         if not item_data:
             return {'success': False, 'message': f'{item_name} not available here'}
         
-        total_cost = item_data['price'] * quantity
+        # Apply trading discount from crew
+        discount = player.get_crew_bonus('trading') / 100
+        total_cost = int(item_data['price'] * quantity * (1 - discount))
         
         # Check if player has enough credits
         if player.credits < total_cost:
@@ -252,6 +254,8 @@ class TradingSystem:
         
         # Calculate sell price (usually lower than buy price)
         sell_price = item.value * 0.7  # 70% of base value
+        bonus = player.get_crew_bonus('trading') / 100
+        sell_price *= (1 + bonus)
         
         # Apply market specialization bonus
         if item.item_type == 'trade_good':
