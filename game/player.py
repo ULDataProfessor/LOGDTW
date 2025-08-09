@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from game.skills import Skill
 from game.crew import Crew, CrewMember
+from game.ship_customization import ShipCustomization
 
 @dataclass
 class Item:
