@@ -60,6 +60,7 @@ class Game:
         self.save_system = SaveGameSystem()
         self.achievements = AchievementSystem()
         self.running = False
+        self.save_system = SaveGameSystem()
 
     def clear_screen(self):
         """Clear the console screen"""

@@ -407,6 +407,9 @@ class GameEngine {
             .then(response => {
                 if (response.success) {
                     this.player = response.player;
+                    if (response.world) {
+                        this.world = response.world;
+                    }
                     this.terminal.addLine('SYSTEM', response.message, 'success');
                     this.ui.updatePlayerDisplay();
                 } else {
