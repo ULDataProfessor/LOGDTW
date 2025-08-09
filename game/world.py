@@ -107,7 +107,8 @@ class World:
         self.current_location = "Earth Station"
         self.player_coordinates = (0, 0, 0)
         self.current_sector = 1  # Current sector number
-        self.discovered_sectors = {1}  # Track discovered sectors
+        self.sector_names = {1: "Alpha", 2: "Beta", 3: "Gamma", 4: "Delta", 5: "Epsilon"}
+        self.discovered_sectors = {"Alpha"}  # Track discovered sectors by name
         self.sector_connections = {}  # Sector connections with types
         self.sector_factions = {}  # Faction control of sectors
         self.traveling = False
@@ -508,7 +509,7 @@ class World:
         self.travel_start_time = time.time()
         
         # Discover the sector
-        self.discovered_sectors.add(sector_number)
+        self.discovered_sectors.add(self.sector_names.get(sector_number, str(sector_number)))
         
         return {
             'success': True,
@@ -648,7 +649,7 @@ class World:
         self.space_sector = dest_location.sector
         
         # Discover the sector
-        self.discovered_sectors.add(dest_location.sector)
+        self.discovered_sectors.add(self.sector_names.get(dest_location.sector, str(dest_location.sector)))
         
         return True
 
