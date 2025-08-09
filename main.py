@@ -37,6 +37,7 @@ from game.skills import Skill
 from game.ai_counselor import ShipCounselor
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
+from game.save_system import SaveGameSystem
 
 class Game:
     def __init__(self):
@@ -54,6 +55,7 @@ class Game:
         self.stock_market = None
         self.banking_system = None
         self.sos_system = None
+        self.save_system = SaveGameSystem()
         self.running = False
 
     def clear_screen(self):
@@ -199,6 +201,38 @@ cargo - Cargo    skills - Skills         counselor - AI chat
 sectors - All sectors  sector - Current sector
         """
         self.console.print(Panel(quick_help, title="Quick Help", border_style="green"))
+
+    def _create_game_state(self):
+        """Collect current game objects into a GameState"""
+        return self.save_system.create_game_state(
+            self.player,
+            self.world,
+            self.quest_system,
+            self.npc_system,
+            self.trading_system,
+            self.player.skills,
+            self.combat_system,
+            {},
+            {"play_time": 0},
+        )
+
+    def _apply_game_state(self, game_state):
+        """Apply a loaded GameState to current game objects"""
+        if not game_state:
+            return False
+
+        pd = game_state.player_data
+        self.player.name = pd.get("name", self.player.name)
+        self.player.ship_name = pd.get("ship_name", self.player.ship_name)
+        self.player.level = pd.get("level", self.player.level)
+        self.player.credits = pd.get("credits", self.player.credits)
+        self.player.experience = pd.get("experience", self.player.experience)
+
+        wd = game_state.world_data
+        self.world.current_sector = wd.get("current_sector", self.world.current_sector)
+        self.world.current_location = wd.get("current_location", self.world.current_location)
+        self.world.player_coordinates = wd.get("player_coordinates", self.world.player_coordinates)
+        return True
 
     def initialize_game(self):
         """Initialize the game systems"""
@@ -393,7 +427,24 @@ sectors - All sectors  sector - Current sector
                 
                 elif command.lower() == 'skills':
                     self.show_skills()
-                
+                elif command.lower() == 'save':
+                    save_name = Prompt.ask('Save name', default='save')
+                    state = self._create_game_state()
+                    self.save_system.save_game(state, save_name, 'Manual save', overwrite=True)
+
+                elif command.lower() == 'load':
+                    saves = self.save_system.get_save_list()
+                    if not saves:
+                        self.console.print("[yellow]No save games available.[/yellow]")
+                    else:
+                        for i, meta in enumerate(saves, 1):
+                            self.console.print(f"{i}. {meta.save_id} - {meta.player_name}")
+                        choice = Prompt.ask('Select save', choices=[str(i) for i in range(1, len(saves)+1)])
+                        save_id = saves[int(choice) - 1].save_id
+                        state = self.save_system.load_game(save_id)
+                        if state:
+                            self._apply_game_state(state)
+
                 elif command.lower() == 'clear':
                     self.clear_screen()
                 
@@ -1015,8 +1066,22 @@ sectors - All sectors  sector - Current sector
                 self.initialize_game()
                 self.game_loop()
             elif choice == "load_game":
-                self.console.print("[yellow]Load game feature not yet implemented.[/yellow]")
-                input("Press Enter to continue...")
+                saves = self.save_system.get_save_list()
+                if not saves:
+                    self.console.print("[yellow]No saved games available.[/yellow]")
+                    input("Press Enter to continue...")
+                else:
+                    for i, meta in enumerate(saves, 1):
+                        self.console.print(f"{i}. {meta.save_id} - {meta.player_name}")
+                    choice_idx = Prompt.ask(
+                        "Select save", choices=[str(i) for i in range(1, len(saves) + 1)]
+                    )
+                    save_id = saves[int(choice_idx) - 1].save_id
+                    state = self.save_system.load_game(save_id)
+                    if state:
+                        self.initialize_game()
+                        self._apply_game_state(state)
+                        self.game_loop()
             elif choice == "help":
                 self.show_help()
             elif choice == "quit":
