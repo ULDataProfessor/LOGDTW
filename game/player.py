@@ -86,6 +86,9 @@ class Player:
         # Inventory
         self.inventory = []
         self.max_inventory = 20
+
+        # Crafting materials
+        self.materials: Dict[str, int] = {}
         
         # Ship information
         self.ship = {
@@ -195,9 +198,35 @@ class Player:
         """Add item to inventory"""
         if len(self.inventory) >= self.max_inventory:
             return False
-        
+
         self.inventory.append(item)
         return True
+
+    def add_material(self, material: str, quantity: int = 1):
+        """Add crafting materials to the player's stock."""
+        self.materials[material] = self.materials.get(material, 0) + quantity
+
+    def has_materials(self, required: Dict[str, int]) -> bool:
+        """Check if the player has the required crafting materials."""
+        return all(self.materials.get(mat, 0) >= qty for mat, qty in required.items())
+
+    def remove_materials(self, required: Dict[str, int]):
+        """Remove crafting materials after crafting."""
+        for mat, qty in required.items():
+            if mat in self.materials:
+                self.materials[mat] -= qty
+                if self.materials[mat] <= 0:
+                    del self.materials[mat]
+
+    def craft(self, recipe_name: str):
+        """Craft an item using a known recipe."""
+        from game.crafting import RECIPES, craft_item
+
+        recipe = RECIPES.get(recipe_name)
+        if not recipe:
+            return {"success": False, "message": "Unknown recipe"}
+
+        return craft_item(self, recipe)
     
     def remove_item(self, item_name: str, quantity: int = 1) -> Optional[Item]:
         """Remove item from inventory by name and quantity"""
