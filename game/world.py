@@ -438,6 +438,11 @@ class World:
                 return True
         return False
 
+    def can_jump_to(self, destination: str) -> bool:
+        """Check if the current location connects to the destination by name"""
+        current = self.get_current_location()
+        return bool(current and destination in current.connections)
+
     def jump_to_sector(self, sector_number: int, player) -> Dict:
         """Jump to a connected sector (TW2002 style)"""
         if not self.can_jump_to_sector(sector_number):

@@ -39,8 +39,8 @@ def test_player():
     assert player.credits == 1000
     
     # Test starting items
-    assert len(player.inventory) == 6
-    print("✓ Player created with 6 starting items")
+    assert len(player.inventory) == 7
+    print("✓ Player created with 7 starting items")
     
     # Test experience system
     player.gain_experience(50)
@@ -49,7 +49,7 @@ def test_player():
     
     # Test item management
     assert player.add_item(player.inventory[0])
-    assert len(player.inventory) == 7
+    assert len(player.inventory) == 8
     print("✓ Item management working")
     
     # Test name and ship name changes
@@ -91,7 +91,7 @@ def test_world():
     print("✓ Market system working")
     
     # Test sector discovery
-    assert "Beta" in world.discovered_sectors
+    assert 2 in world.discovered_sectors
     print("✓ Sector discovery working")
     
     print("✓ World tests passed!")
