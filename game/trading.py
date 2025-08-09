@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from game.player import Player, Item
+from game.dynamic_markets import DynamicMarketSystem
 
 @dataclass
 class TradeGood:
@@ -22,19 +23,24 @@ class TradingSystem:
     """Handles trading and economy mechanics"""
     
     def __init__(self):
+        # Dynamic market simulation
+        self.market_system = DynamicMarketSystem()
+
         self.trade_goods = {}
         self.market_prices = {}
         self.location_markets = {}
+        self.location_sectors = {}
+        self.good_to_commodity = {}
         self.trade_history = []
         self.price_history = {}
-        
-        # Initialize trade goods
+
+        # Initialize trade goods and mapping to dynamic market commodities
         self._create_trade_goods()
-        
-        # Initialize markets at different locations
+
+        # Initialize markets/sector economies
         self._create_markets()
-        
-        # Update prices periodically
+
+        # Initial price pull from dynamic market
         self._update_all_prices()
     
     def _create_trade_goods(self):
@@ -85,110 +91,106 @@ class TradingSystem:
                 category=good_data['category']
             )
             self.trade_goods[good_data['name']] = good
+
+        # Mapping of trade good names to DynamicMarketSystem commodity names
+        self.good_to_commodity = {
+            'Iron Ore': 'Iron',
+            'Gold': 'Gold',
+            'Platinum': 'Gold',
+            'Uranium': 'Rare Compounds',
+            'Raw Minerals': 'Copper',
+            'Ammolite': 'Ammolite',
+            'Computer Chips': 'Computer Chips',
+            'Quantum Processors': 'AI Cores',
+            'Energy Cells': 'Energy Cells',
+            'Shield Generators': 'Military Hardware',
+            'Quantum Scanner': 'Electronics',
+            'Space Wine': 'Food',
+            'Alien Artifacts': 'Rare Compounds',
+            'Rare Gems': 'Ammolite',
+            'Stolen Cargo': 'Rare Compounds',
+            'Synthetic Food': 'Food',
+            'Fresh Vegetables': 'Food',
+            'Exotic Spices': 'Spices',
+            'Med Kits': 'Medicine',
+            'Stimulants': 'Medicine',
+            'Nanobots': 'Medical Equipment',
+            'Research Data': 'Software',
+            'Experimental Weapon': 'Weapons',
+            "Smuggler's Map": 'Software'
+        }
     
     def _create_markets(self):
-        """Create markets at different locations"""
-        # Market data for different locations
-        markets_data = {
-            'Earth Station': {
-                'specialization': 'technology',
-                'price_modifier': 1.0,
-                'available_goods': ['Computer Chips', 'Energy Cells', 'Synthetic Food', 'Med Kits', 'Shield Generators'],
-                'trade_volume': 'high',
-                'security': 'high'
-            },
-            'Mars Colony': {
-                'specialization': 'minerals',
-                'price_modifier': 0.8,
-                'available_goods': ['Iron Ore', 'Gold', 'Platinum', 'Synthetic Food', 'Raw Minerals'],
-                'trade_volume': 'medium',
-                'security': 'medium'
-            },
-            'Luna Base': {
-                'specialization': 'research',
-                'price_modifier': 1.2,
-                'available_goods': ['Computer Chips', 'Quantum Processors', 'Energy Cells', 'Med Kits', 'Research Data'],
-                'trade_volume': 'low',
-                'security': 'high'
-            },
-            'Pirate Haven': {
-                'specialization': 'luxury',
-                'price_modifier': 1.5,
-                'available_goods': ['Alien Artifacts', 'Rare Gems', 'Space Wine', 'Stimulants', 'Stolen Cargo'],
-                'trade_volume': 'medium',
-                'security': 'low'
-            },
-            'Deep Space Lab': {
-                'specialization': 'technology',
-                'price_modifier': 1.3,
-                'available_goods': ['Quantum Processors', 'Shield Generators', 'Nanobots', 'Energy Cells', 'Experimental Weapon'],
-                'trade_volume': 'low',
-                'security': 'high'
-            }
-        }
-        
-        for location, market_data in markets_data.items():
-            self.location_markets[location] = market_data
-            self._update_market_prices(location, market_data)
-    
-    def _update_market_prices(self, location: str, market_data: Dict):
-        """Update prices for a specific location"""
+        """Initialize sector economies for known locations"""
+
+        locations = ['Earth Station', 'Mars Colony', 'Luna Base', 'Pirate Haven', 'Deep Space Lab']
+        for idx, location in enumerate(locations, start=1):
+            self.location_sectors[location] = idx
+            self.location_markets[location] = {}
+            # Ensure a sector economy exists in the dynamic market
+            self.market_system.initialize_sector_economy(idx)
+            # Prime local price cache
+            self._update_market_prices(location)
+
+    def _update_market_prices(self, location: str):
+        """Retrieve current prices from the dynamic market system"""
         if location not in self.market_prices:
             self.market_prices[location] = {}
-        
-        for good_name in market_data['available_goods']:
-            if good_name in self.trade_goods:
-                good = self.trade_goods[good_name]
-                base_price = good.base_price
-                
-                # Apply location modifier
-                price_modifier = market_data['price_modifier']
-                
-                # Apply specialization bonus
-                if good.category == market_data['specialization']:
-                    price_modifier *= 1.2
-                
-                # Add some randomness
-                random_factor = random.uniform(0.9, 1.1)
-                
-                final_price = int(base_price * price_modifier * random_factor)
-                self.market_prices[location][good_name] = final_price
-                
-                # Store price history
-                if location not in self.price_history:
-                    self.price_history[location] = {}
-                if good_name not in self.price_history[location]:
-                    self.price_history[location][good_name] = []
-                self.price_history[location][good_name].append(final_price)
+
+        sector_id = self.location_sectors.get(location)
+        if sector_id is None:
+            return
+
+        info = self.market_system.get_market_info(sector_id)
+        prices = info['prices']
+
+        for good_name, commodity_name in self.good_to_commodity.items():
+            price = prices.get(commodity_name)
+            if price is None:
+                continue
+            self.market_prices[location][good_name] = int(price)
+
+            # Store price history
+            if location not in self.price_history:
+                self.price_history[location] = {}
+            if good_name not in self.price_history[location]:
+                self.price_history[location][good_name] = []
+            self.price_history[location][good_name].append(int(price))
     
     def _update_all_prices(self):
         """Update prices for all markets"""
-        for location, market_data in self.location_markets.items():
-            self._update_market_prices(location, market_data)
+        for location in self.location_markets.keys():
+            self._update_market_prices(location)
     
     def get_market_info(self, location: str) -> Dict:
         """Get market information for a location"""
-        if location not in self.location_markets:
+        if location not in self.location_sectors:
             return {'available': False}
-        
-        market_data = self.location_markets[location]
+
+        # Refresh prices before returning data
+        self._update_market_prices(location)
         prices = self.market_prices.get(location, {})
-        
+        sector_id = self.location_sectors[location]
+        condition = self.market_system.get_market_info(sector_id)['market_condition']
+
+        goods = []
+        for good_name, price in prices.items():
+            goods.append({
+                'name': good_name,
+                'price': price,
+                'description': self.trade_goods[good_name].description if good_name in self.trade_goods else '',
+                'category': self.trade_goods[good_name].category if good_name in self.trade_goods else ''
+            })
+
         return {
             'available': True,
-            'specialization': market_data['specialization'],
-            'price_modifier': market_data['price_modifier'],
-            'trade_volume': market_data['trade_volume'],
-            'security': market_data['security'],
-            'goods': [
-                {
-                    'name': good_name,
-                    'price': prices.get(good_name, 0),
-                    'description': self.trade_goods[good_name].description if good_name in self.trade_goods else '',
-                    'category': self.trade_goods[good_name].category if good_name in self.trade_goods else ''
-                }
-                for good_name in market_data['available_goods']
-            ]
+            'market_condition': condition,
+            'goods': goods,
+            # Legacy fields for compatibility
+            'specialization': '',
+            'price_modifier': 1.0,
+            'trade_volume': 'medium',
+            'security': 'medium'
         }
     
     def buy_item(self, player: Player, location: str, item_name: str, quantity: int = 1) -> Dict:
@@ -206,7 +208,7 @@ class TradingSystem:
         
         if not item_data:
             return {'success': False, 'message': f'{item_name} not available here'}
-        
+
         total_cost = item_data['price'] * quantity
         
         # Check if player has enough credits
@@ -228,10 +230,16 @@ class TradingSystem:
         
         # Deduct credits
         player.spend_credits(total_cost)
-        
+
+        # Update dynamic market supply/demand
+        sector_id = self.location_sectors.get(location)
+        commodity = self.good_to_commodity.get(item_data['name'], item_data['name'])
+        if sector_id is not None:
+            self.market_system.update_trade(sector_id, commodity, quantity, True)
+
         # Record trade
         self._record_trade('buy', location, item_data['name'], quantity, total_cost)
-        
+
         return {
             'success': True,
             'message': f'Bought {quantity} {item_data["name"]} for {total_cost} credits',
@@ -270,10 +278,16 @@ class TradingSystem:
         
         # Add credits
         player.add_credits(total_earnings)
-        
+
+        # Update dynamic market after sale
+        sector_id = self.location_sectors.get(location)
+        commodity = self.good_to_commodity.get(item_name, item_name)
+        if sector_id is not None:
+            self.market_system.update_trade(sector_id, commodity, quantity, False)
+
         # Record trade
         self._record_trade('sell', location, item_name, quantity, total_earnings)
-        
+
         return {
             'success': True,
             'message': f'Sold {quantity} {item_name} for {total_earnings} credits',
@@ -328,13 +342,10 @@ class TradingSystem:
         market_info = self.get_market_info(location)
         if not market_info['available']:
             return "No market available at this location."
-        
+
         summary = f"\n[bold cyan]Market at {location}[/bold cyan]\n"
-        summary += f"Specialization: {market_info['specialization'].title()}\n"
-        summary += f"Price Modifier: {market_info['price_modifier']:.1f}x\n"
-        summary += f"Trade Volume: {market_info['trade_volume'].title()}\n"
-        summary += f"Security: {market_info['security'].title()}\n\n"
-        
+        summary += f"Condition: {market_info['market_condition'].title()}\n\n"
+
         summary += "[bold yellow]Available Goods:[/bold yellow]\n"
         for good in market_info['goods']:
             summary += f"  • {good['name']}: {good['price']} credits\n"

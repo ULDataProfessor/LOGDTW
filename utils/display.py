@@ -214,10 +214,20 @@ class DisplayManager:
             return
         
         market_text = f"[bold cyan]Market Information[/bold cyan]\n\n"
-        market_text += f"Specialization: {market_data['specialization'].title()}\n"
-        market_text += f"Price Modifier: {market_data['price_modifier']:.1f}x\n"
-        market_text += f"Trade Volume: {market_data['trade_volume'].title()}\n"
-        market_text += f"Security: {market_data['security'].title()}\n\n"
+
+        condition = market_data.get('market_condition')
+        if condition:
+            market_text += f"Condition: {condition.title()}\n"
+        if market_data.get('specialization'):
+            market_text += f"Specialization: {market_data['specialization'].title()}\n"
+        if 'price_modifier' in market_data:
+            market_text += f"Price Modifier: {market_data['price_modifier']:.1f}x\n"
+        if market_data.get('trade_volume'):
+            market_text += f"Trade Volume: {market_data['trade_volume'].title()}\n"
+        if market_data.get('security'):
+            market_text += f"Security: {market_data['security'].title()}\n"
+
+        market_text += "\n"
         
         market_text += "[bold yellow]Available Goods:[/bold yellow]\n"
         for good in market_data['goods']:

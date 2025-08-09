@@ -123,6 +123,8 @@ class DynamicMarketSystem:
             "Electronics": {"base_price": 300, "volatility": 0.25, "category": CommodityCategory.TECHNOLOGY, "cost": 200},
             "Software": {"base_price": 500, "volatility": 0.3, "category": CommodityCategory.TECHNOLOGY, "cost": 300},
             "AI Cores": {"base_price": 10000, "volatility": 0.8, "category": CommodityCategory.TECHNOLOGY, "cost": 7500},
+            # Additional low-tech component used by trading system
+            "Computer Chips": {"base_price": 50, "volatility": 0.25, "category": CommodityCategory.TECHNOLOGY, "cost": 30},
             
             # Weapons
             "Weapons": {"base_price": 800, "volatility": 0.4, "category": CommodityCategory.WEAPONS, "cost": 600},
@@ -520,6 +522,42 @@ class DynamicMarketSystem:
             base_prices[commodity_name] = max(1, int(price))
         
         return base_prices
+
+    def get_market_info(self, sector_id: int) -> Dict[str, Any]:
+        """Return market information for a sector.
+
+        Provides price data and the current market condition so that
+        external systems can display up-to-date information without
+        needing direct access to internal structures.
+        """
+
+        if sector_id not in self.sector_economies:
+            # Lazily create sector economies if they don't exist yet
+            self.initialize_sector_economy(sector_id)
+
+        prices = self.get_sector_prices(sector_id)
+        economy = self.sector_economies[sector_id]
+
+        goods = []
+        for name, price in prices.items():
+            data = self.commodities[name]
+            goods.append({
+                "name": name,
+                "price": int(price),
+                "supply": data.supply,
+                "demand": data.demand,
+                "category": data.category.value,
+            })
+
+        return {
+            "market_condition": economy.market_condition.value,
+            "prices": {k: int(v) for k, v in prices.items()},
+            "goods": goods,
+        }
+
+    def update_trade(self, sector_id: int, commodity: str, quantity: int, is_purchase: bool) -> Dict[str, Any]:
+        """Public wrapper for executing a trade and updating the market."""
+        return self.execute_trade(commodity, quantity, sector_id, is_purchase)
     
     def execute_trade(self, commodity: str, quantity: int, sector_id: int, 
                      is_purchase: bool) -> Dict[str, Any]:
