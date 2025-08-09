@@ -18,16 +18,46 @@ from flask_sqlalchemy import SQLAlchemy
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
+    # Core game modules
     from game.player import Player as GamePlayer
     from game.world import World
-    from game.enhanced_combat import EnhancedCombatSystem
-    from game.procedural_generator import ProceduralGenerator
     from game.save_system import SaveGameSystem, GameState
+    
+    # Combat systems
+    from game.combat import CombatSystem
+    from game.enhanced_combat import EnhancedCombatSystem
+    
+    # Trading and economy
+    from game.trading import TradingSystem
     from game.dynamic_markets import DynamicMarketSystem
+    from game.stock_market import StockMarket
+    
+    # Missions and quests
     from game.enhanced_missions import MissionManager
+    from game.quests import QuestManager
+    
+    # Procedural content
+    from game.procedural_generator import ProceduralGenerator
+    from game.world_generator import WorldGenerator
+    from game.event_engine import EventEngine
+    
+    # Character progression
     from game.skills import SkillTree
+    from game.achievements import AchievementSystem
+    from game.crew import CrewManager
+    
+    # Game mechanics
     from game.fog_of_war import FogOfWarSystem
     from game.random_events import RandomEventSystem, EventContext
+    from game.ship_customization import ShipCustomization
+    from game.crafting import CraftingSystem
+    from game.diplomacy import DiplomacySystem
+    from game.npcs import NPCManager
+    from game.story_content import StoryManager
+    from game.holodeck import HolodeckSystem
+    from game.ai_counselor import AICounselor
+    from game.sos_system import SOSSystem
+    
     GAME_MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import game modules: {e}")
