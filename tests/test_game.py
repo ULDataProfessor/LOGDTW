@@ -8,8 +8,9 @@ import sys
 import os
 
 # Add the game directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'game'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'game'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'utils'))
 
 from game.player import Player
 from game.world import World

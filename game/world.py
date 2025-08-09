@@ -464,7 +464,7 @@ class World:
         """Check if player can jump to sector number"""
         if self.current_sector not in self.sector_connections:
             return False
-        
+
         for connection in self.sector_connections[self.current_sector]:
             if connection.destination_sector == sector_number:
                 return True

@@ -38,6 +38,7 @@ from game.ai_counselor import ShipCounselor
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
 from game.save_system import SaveGameSystem
+from game.achievements import AchievementSystem
 
 class Game:
     def __init__(self):
@@ -56,6 +57,7 @@ class Game:
         self.banking_system = None
         self.sos_system = None
         self.save_system = SaveGameSystem()
+        self.achievements = AchievementSystem()
         self.running = False
 
     def clear_screen(self):
@@ -214,6 +216,7 @@ sectors - All sectors  sector - Current sector
             self.combat_system,
             {},
             {"play_time": 0},
+            achievements=self.achievements.get_unlocked(),
         )
 
     def _apply_game_state(self, game_state):
@@ -232,6 +235,7 @@ sectors - All sectors  sector - Current sector
         self.world.current_sector = wd.get("current_sector", self.world.current_sector)
         self.world.current_location = wd.get("current_location", self.world.current_location)
         self.world.player_coordinates = wd.get("player_coordinates", self.world.player_coordinates)
+        self.achievements.load(getattr(game_state, "achievements", []), self.player)
         return True
 
     def initialize_game(self):
@@ -255,6 +259,7 @@ sectors - All sectors  sector - Current sector
         self.banking_system = BankingSystem()
         self.sos_system = SOSSystem()
         self.counselor = ShipCounselor()
+        self.achievements.reset()
         
         # Generate NPCs for current location
         current_location = self.world.get_current_location().name
@@ -321,7 +326,7 @@ sectors - All sectors  sector - Current sector
                 
                 # Display current location and status
                 self.display.show_location(self.world.get_current_location())
-                self.display.show_status(self.player)
+                self.display.show_status(self.player, self.achievements.get_unlocked_names())
                 self.display.show_tw2002_sector_display(self.world)
                 self.display.show_space_instructions(self.world)
                 

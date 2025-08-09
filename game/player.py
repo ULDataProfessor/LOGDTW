@@ -51,9 +51,12 @@ class Player:
         self.max_mental_health = 100
         self.fuel = 100
         self.max_fuel = 100
-        
+
         # Currency and resources
         self.credits = 1000
+
+        # Titles earned through achievements
+        self.titles: List[str] = []
         
         # Stats
         self.stats = {
