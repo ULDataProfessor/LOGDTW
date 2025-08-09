@@ -3,7 +3,6 @@ Trading system for LOGDTW2002
 Handles economy, trading, and market mechanics
 """
 
-import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from game.player import Player, Item
