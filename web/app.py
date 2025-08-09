@@ -450,8 +450,8 @@ def trade():
 @app.route('/api/market', methods=['GET'])
 def get_market():
     """Get current market prices"""
-    data = get_game_data()
-    current_sector = data['player']['current_sector']
+    player = get_current_player()
+    current_sector = player.current_sector
     
     if GAME_MODULES_AVAILABLE:
         systems = get_game_systems()
@@ -486,15 +486,16 @@ def combat():
     if not GAME_MODULES_AVAILABLE:
         return jsonify(success=False, message='Combat system not available')
     
-    data = get_game_data()
+    player = get_current_player()
     json_data = request.get_json() or {}
     action = json_data.get('action', 'scan')
     
     if action == 'scan':
         # Scan for enemies
-        danger_level = min(data['player']['current_sector'] // 10 + 1, 5)
+        danger_level = min(player.current_sector // 10 + 1, 5)
         enemy_chance = danger_level * 0.2
         
+        import random
         if random.random() < enemy_chance:
             enemy_types = ['space_pirate', 'alien_scout', 'rogue_trader']
             enemy = random.choice(enemy_types)
@@ -519,13 +520,14 @@ def get_missions():
     if not GAME_MODULES_AVAILABLE:
         return jsonify(success=True, missions=[])
     
-    data = get_game_data()
+    player = get_current_player()
+    data = get_game_data()  # Still needed for legacy mission system
     systems = get_game_systems()
     mission_manager = systems['mission_manager']
     
     available_missions = mission_manager.get_available_missions(
-        data['player']['level'],
-        data['player']['current_sector'],
+        player.level,
+        player.current_sector,
         data
     )
     
@@ -556,21 +558,22 @@ def save_game():
     json_data = request.get_json() or {}
     save_name = json_data.get('save_name', 'web_save')
     
+    player = get_current_player()
     data = get_game_data()
     systems = get_game_systems()
     save_system = systems['save_system']
     
     # Create a GameState object
     game_state = GameState(
-        player_data=data['player'],
+        player_data=player.to_dict(),
         world_data=data['world'],
         mission_data=data['missions'],
         npc_data={},
         trading_data={},
-        skill_data=data['skills'],
+        skill_data=player.skills,
         combat_data={},
         settings={},
-        statistics={'play_time': data['world']['turn_counter'] * 60},
+        statistics={'play_time': player.turn_counter * 60},
         achievements=[],
         timestamp=time.time()
     )
@@ -597,32 +600,28 @@ def load_game():
     game_state = save_system.load_game(save_name)
     
     if game_state:
-        # Update session with loaded data
-        session['game_data'] = {
-            'player': game_state.player_data,
-            'world': game_state.world_data,
-            'missions': game_state.mission_data,
-            'skills': game_state.skill_data,
-            'inventory': [],  # Would be in player_data in full implementation
-            'reputation': {}  # Would be in player_data in full implementation
-        }
-        session.modified = True
-        
-        return jsonify(success=True, message='Game loaded successfully')
+        # Note: In a full implementation, this would update the database player
+        # For now, just return success - the database is the source of truth
+        return jsonify(success=True, message='Load not fully implemented in database mode')
     else:
         return jsonify(success=False, message='Failed to load game')
 
 @app.route('/api/galaxy', methods=['GET'])
 def get_galaxy():
     """Get galaxy map information"""
-    data = get_game_data()
-    discovered = data['world']['discovered_sectors']
-    current = data['player']['current_sector']
+    player = get_current_player()
+    
+    # Get discovered sectors
+    discovered_sectors = [
+        v.sector_id for v in SectorVisibility.query.filter_by(
+            player_id=player.id, discovered=True
+        ).all()
+    ]
     
     galaxy_map = {
-        'current_sector': current,
-        'discovered_sectors': discovered,
-        'total_sectors': 100,
+        'current_sector': player.current_sector,
+        'discovered_sectors': discovered_sectors,
+        'total_sectors': 1000,
         'sectors': {}
     }
     
@@ -631,7 +630,7 @@ def get_galaxy():
         proc_gen = systems['procedural_generator']
         
         # Add info for discovered sectors
-        for sector_id in discovered:
+        for sector_id in discovered_sectors:
             sector_data = proc_gen.generate_galaxy_sector(sector_id)
             galaxy_map['sectors'][sector_id] = {
                 'name': sector_data.name,
@@ -708,8 +707,8 @@ if __name__ == '__main__':
     print("🚀 Starting LOGDTW2002 Flask Web Server")
     print("=" * 40)
     print(f"Game modules available: {GAME_MODULES_AVAILABLE}")
-    print("Web interface: http://localhost:5000")
-    print("API endpoints: http://localhost:5000/api/")
+    print("Web interface: http://localhost:5002")
+    print("API endpoints: http://localhost:5002/api/")
     print("=" * 40)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5002)

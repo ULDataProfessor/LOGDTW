@@ -1,5 +1,441 @@
 // LOGDTW2002 Web Edition - Main Game Logic
 
+class TerminalManager {
+    constructor() {
+        this.screen = document.getElementById('terminal-screen');
+        this.maxLines = 100;
+        this.lineCount = 0;
+        
+        // Clear initial loading lines
+        setTimeout(() => {
+            this.clear();
+            this.addLine('SYSTEM', 'Terminal initialized successfully', 'success');
+        }, 1000);
+    }
+    
+    addLine(prefix, text, type = 'info') {
+        if (!this.screen) return;
+        
+        const line = document.createElement('div');
+        line.className = `terminal-line ${type}`;
+        
+        const prompt = document.createElement('span');
+        prompt.className = 'prompt';
+        prompt.textContent = `${prefix}>`;
+        
+        const content = document.createElement('span');
+        content.className = 'terminal-text';
+        content.textContent = text;
+        
+        line.appendChild(prompt);
+        line.appendChild(content);
+        
+        this.screen.appendChild(line);
+        this.lineCount++;
+        
+        // Remove old lines if we have too many
+        if (this.lineCount > this.maxLines) {
+            const firstLine = this.screen.firstChild;
+            if (firstLine) {
+                this.screen.removeChild(firstLine);
+                this.lineCount--;
+            }
+        }
+        
+        // Scroll to bottom
+        this.screen.scrollTop = this.screen.scrollHeight;
+        
+        // Add typing effect for system messages
+        if (type === 'system') {
+            content.classList.add('typing-effect');
+        }
+    }
+    
+    addTable(headers, rows) {
+        if (!this.screen) return;
+        
+        const table = document.createElement('table');
+        table.className = 'terminal-table';
+        
+        // Headers
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        headers.forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Rows
+        const tbody = document.createElement('tbody');
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            row.forEach(cell => {
+                const td = document.createElement('td');
+                td.textContent = cell;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        
+        this.screen.appendChild(table);
+        this.screen.scrollTop = this.screen.scrollHeight;
+    }
+    
+    addProgressBar(label, percentage) {
+        if (!this.screen) return;
+        
+        const container = document.createElement('div');
+        container.innerHTML = `
+            <div style="margin: 8px 0; color: var(--accent-text);">${label}</div>
+            <div class="terminal-progress">
+                <div class="terminal-progress-bar" style="width: ${percentage}%"></div>
+                <div class="terminal-progress-text">${percentage}%</div>
+            </div>
+        `;
+        
+        this.screen.appendChild(container);
+        this.screen.scrollTop = this.screen.scrollHeight;
+    }
+    
+    clear() {
+        if (this.screen) {
+            this.screen.innerHTML = '';
+            this.lineCount = 0;
+        }
+    }
+}
+
+class UIManager {
+    constructor() {
+        this.lastUpdate = 0;
+        this.connectionStatus = 'online';
+        this.init();
+    }
+    
+    init() {
+        // Update connection status indicator
+        this.updateConnectionStatus(true);
+        
+        // Initialize with loading state
+        this.showLoadingState();
+    }
+    
+    showLoadingState() {
+        document.getElementById('player-name').textContent = 'Loading...';
+        document.getElementById('ship-name').textContent = 'Loading...';
+        document.getElementById('credits').textContent = '0';
+        document.getElementById('current-sector').textContent = '1';
+        
+        // Show loading in panels
+        const skillsGrid = document.getElementById('skills-grid');
+        const inventoryGrid = document.getElementById('inventory-grid');
+        
+        if (skillsGrid) {
+            skillsGrid.innerHTML = '<div class="loading">Loading skills...</div>';
+        }
+        
+        if (inventoryGrid) {
+            inventoryGrid.innerHTML = '<div class="inventory-empty">Loading cargo...</div>';
+        }
+    }
+    
+    updatePlayerDisplay() {
+        if (!window.game || !window.game.player) return;
+        
+        const player = window.game.player;
+        
+        // Update basic info
+        this.updateElement('player-name', player.name || 'Captain');
+        this.updateElement('ship-name', player.ship_name || 'Starfarer');
+        this.updateElement('credits', this.formatNumber(player.credits || 0));
+        this.updateElement('current-sector', player.current_sector || 1);
+        this.updateElement('sector-number', player.current_sector || 1);
+        this.updateElement('sector-location', player.current_location || 'Unknown');
+        
+        // Update resource bars
+        this.updateResourceBar('health', player.health || 100, player.max_health || 100);
+        this.updateResourceBar('energy', player.energy || 100, player.max_energy || 100);
+        this.updateResourceBar('fuel', player.fuel || 100, player.max_fuel || 100);
+        
+        // Update skills
+        this.updateSkills(player.skills || {});
+        
+        // Update inventory from game data
+        if (window.game.inventory) {
+            this.updateInventory(window.game.inventory);
+        }
+        
+        // Update turn counter
+        this.updateElement('turn-counter', window.game.world?.turn_counter || 0);
+    }
+    
+    updateElement(id, value) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    }
+    
+    updateResourceBar(type, current, max) {
+        const bar = document.getElementById(`${type}-bar`);
+        const text = document.getElementById(`${type}-text`);
+        
+        if (bar && text) {
+            const percentage = Math.round((current / max) * 100);
+            bar.style.width = `${percentage}%`;
+            text.textContent = `${current}/${max}`;
+            
+            // Add warning colors for low resources
+            bar.classList.remove('low', 'critical');
+            if (percentage < 25) {
+                bar.classList.add('critical');
+            } else if (percentage < 50) {
+                bar.classList.add('low');
+            }
+        }
+    }
+    
+    updateSkills(skills) {
+        const skillsGrid = document.getElementById('skills-grid');
+        if (!skillsGrid) return;
+        
+        skillsGrid.innerHTML = '';
+        
+        Object.entries(skills).forEach(([skill, level]) => {
+            const skillItem = document.createElement('div');
+            skillItem.className = 'skill-item';
+            skillItem.innerHTML = `
+                <span class="skill-name">${skill}</span>
+                <span class="skill-level">Level ${level}</span>
+            `;
+            skillsGrid.appendChild(skillItem);
+        });
+    }
+    
+    updateInventory(inventory = []) {
+        const inventoryGrid = document.getElementById('inventory-grid');
+        if (!inventoryGrid) return;
+        
+        inventoryGrid.innerHTML = '';
+        
+        if (!inventory || inventory.length === 0) {
+            inventoryGrid.innerHTML = '<div class="inventory-empty">Cargo hold is empty</div>';
+            return;
+        }
+        
+        inventory.forEach(item => {
+            const inventoryItem = document.createElement('div');
+            inventoryItem.className = 'inventory-item';
+            inventoryItem.innerHTML = `
+                <span class="item-name">${item.name}</span>
+                <span class="item-quantity">×${item.quantity}</span>
+            `;
+            inventoryGrid.appendChild(inventoryItem);
+        });
+    }
+    
+    updateMarketSummary(market) {
+        const marketSummary = document.getElementById('market-summary');
+        if (!marketSummary || !market) return;
+        
+        marketSummary.innerHTML = '';
+        
+        if (market.prices) {
+            const topItems = Object.entries(market.prices).slice(0, 4);
+            topItems.forEach(([item, price]) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span>${item}</span>
+                        <span class="text-accent">${price} cr</span>
+                    </div>
+                `;
+                marketSummary.appendChild(itemDiv);
+            });
+        }
+        
+        if (market.economy) {
+            const economyDiv = document.createElement('div');
+            economyDiv.innerHTML = `
+                <hr style="margin: 8px 0; border-color: var(--border-color);">
+                <div><strong>Market:</strong> ${market.economy.market_condition || 'Normal'}</div>
+                <div><strong>Wealth:</strong> ${market.economy.wealth_level || 'Medium'}</div>
+            `;
+            marketSummary.appendChild(economyDiv);
+        }
+    }
+    
+    updateSectorInfo(sectorInfo) {
+        if (!sectorInfo) return;
+        
+        this.updateElement('sector-faction', sectorInfo.faction || 'Unknown');
+        this.updateElement('planet-count', sectorInfo.planets || 0);
+        this.updateElement('station-count', sectorInfo.stations || 0);
+        
+        const dangerElement = document.getElementById('danger-level');
+        if (dangerElement && sectorInfo.danger_level !== undefined) {
+            const level = sectorInfo.danger_level;
+            let text = 'Low';
+            let className = 'danger-low';
+            
+            if (level >= 4) {
+                text = 'High';
+                className = 'danger-high';
+            } else if (level >= 2) {
+                text = 'Medium';
+                className = 'danger-medium';
+            }
+            
+            dangerElement.textContent = text;
+            dangerElement.className = className;
+        }
+    }
+    
+    addNewsItem(text) {
+        const newsFeed = document.getElementById('news-feed');
+        if (!newsFeed) return;
+        
+        const newsItem = document.createElement('div');
+        newsItem.className = 'news-item';
+        newsItem.innerHTML = `
+            <div class="news-date">Turn ${window.game.world?.turn_counter || 0}</div>
+            <div class="news-text">${text}</div>
+        `;
+        
+        newsFeed.insertBefore(newsItem, newsFeed.firstChild);
+        
+        // Keep only last 5 news items
+        while (newsFeed.children.length > 5) {
+            newsFeed.removeChild(newsFeed.lastChild);
+        }
+    }
+    
+    updateConnectionStatus(connected) {
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+        
+        if (indicator && text) {
+            indicator.className = connected ? 'status-indicator online' : 'status-indicator offline';
+            text.textContent = connected ? 'Connected' : 'Disconnected';
+        }
+        
+        this.connectionStatus = connected ? 'online' : 'offline';
+    }
+    
+    showNotification(message, type = 'info') {
+        // Create floating notification
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: var(--panel-bg);
+            border: 2px solid var(--accent-text);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-md);
+            z-index: 9999;
+            max-width: 300px;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+    
+    formatNumber(num) {
+        return new Intl.NumberFormat().format(num);
+    }
+    
+    update() {
+        // Regular UI updates can go here
+        // For example, updating timestamps, checking connection, etc.
+    }
+}
+
+class Modal {
+    constructor(title, content, footer = null) {
+        this.title = title;
+        this.content = content;
+        this.footer = footer;
+        this.overlay = document.getElementById('modal-overlay');
+    }
+    
+    show() {
+        if (!this.overlay) return;
+        
+        // Update modal content
+        document.getElementById('modal-title').textContent = this.title;
+        document.getElementById('modal-body').innerHTML = this.content;
+        
+        if (this.footer) {
+            document.getElementById('modal-footer').innerHTML = this.footer;
+        }
+        
+        // Show modal
+        this.overlay.classList.add('active');
+        
+        // Focus trap
+        const focusableElements = this.overlay.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        
+        if (focusableElements.length > 0) {
+            focusableElements[0].focus();
+        }
+    }
+    
+    hide() {
+        if (this.overlay) {
+            this.overlay.classList.remove('active');
+        }
+    }
+}
+
+function closeModal() {
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // ESC to close modal
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+    
+    // Quick commands
+    if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+            case 's':
+                e.preventDefault();
+                saveGame();
+                break;
+            case 'l':
+                e.preventDefault();
+                loadGame();
+                break;
+            case 'm':
+                e.preventDefault();
+                showGalaxyMap();
+                break;
+        }
+    }
+});
+
 class GameEngine {
     constructor() {
         this.player = {};
@@ -57,8 +493,19 @@ class GameEngine {
                 if (response.success) {
                     this.player = response.player;
                     this.world = response.world;
+                    this.inventory = response.inventory || [];
+                    this.skills = response.skills || {};
+                    this.reputation = response.reputation || {};
+                    
                     this.ui.updatePlayerDisplay();
+                    this.ui.updateInventory(this.inventory);
+                    this.ui.updateConnectionStatus(true);
+                    
                     this.terminal.addLine('SYSTEM', 'Game state loaded successfully', 'success');
+                    this.terminal.addLine('SYSTEM', `Welcome aboard, ${this.player.name}!`, 'info');
+                    
+                    // Load market data
+                    this.loadMarketData();
                 } else {
                     this.terminal.addLine('ERROR', 'Failed to load game state', 'error');
                 }
@@ -66,6 +513,19 @@ class GameEngine {
             .catch(error => {
                 console.error('Failed to load game state:', error);
                 this.terminal.addLine('ERROR', 'Connection error', 'error');
+                this.ui.updateConnectionStatus(false);
+            });
+    }
+    
+    loadMarketData() {
+        this.sendRequest('market', 'GET')
+            .then(response => {
+                if (response.success) {
+                    this.ui.updateMarketSummary(response);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load market data:', error);
             });
     }
     
@@ -236,8 +696,8 @@ class GameEngine {
     }
     
     travelToSector(sector) {
-        if (isNaN(sector) || sector < 1 || sector > 20) {
-            this.terminal.addLine('ERROR', 'Invalid sector number (1-20)', 'error');
+        if (isNaN(sector) || sector < 1 || sector > 1000) {
+            this.terminal.addLine('ERROR', 'Invalid sector number (1-1000)', 'error');
             return;
         }
         
@@ -252,17 +712,66 @@ class GameEngine {
             .then(response => {
                 if (response.success) {
                     this.player = response.player;
-                    this.world = response.world;
                     this.terminal.addLine('SYSTEM', response.message, 'success');
                     this.ui.updatePlayerDisplay();
+                    
+                    // Update sector info if provided
+                    if (response.sector_info) {
+                        this.ui.updateSectorInfo(response.sector_info);
+                        this.terminal.addLine('SCAN', `Arrived at ${response.sector_info.name || 'Unknown Sector'}`, 'info');
+                        this.terminal.addLine('SCAN', `Faction: ${response.sector_info.faction || 'Unknown'}`, 'info');
+                        this.terminal.addLine('SCAN', `Danger Level: ${response.sector_info.danger_level || 'Unknown'}`, 'info');
+                    }
+                    
+                    // Handle random events
+                    if (response.random_event) {
+                        this.handleRandomEvent(response.random_event);
+                    }
+                    
+                    // Add news about the travel
+                    this.ui.addNewsItem(`Jumped to Sector ${sector}`);
+                    
+                    // Auto-scan sector
                     this.scanSector();
                 } else {
-                    this.terminal.addLine('ERROR', response.detail || response.message, 'error');
+                    this.terminal.addLine('ERROR', response.message || 'Jump failed', 'error');
                 }
             })
             .catch(error => {
                 this.terminal.addLine('ERROR', 'Jump failed: Communication error', 'error');
+                this.ui.updateConnectionStatus(false);
             });
+    }
+    
+    handleRandomEvent(event) {
+        this.terminal.addLine('EVENT', '🎲 Random Event Triggered!', 'warning');
+        this.terminal.addLine('EVENT', event.event_name, 'warning');
+        this.terminal.addLine('EVENT', event.event_description, 'info');
+        
+        if (event.outcome) {
+            if (event.outcome.message) {
+                this.terminal.addLine('EVENT', event.outcome.message, 'info');
+            }
+            
+            // Show effects/rewards/penalties
+            if (event.outcome.effects) {
+                Object.entries(event.outcome.effects).forEach(([effect, value]) => {
+                    this.terminal.addLine('EVENT', `${effect}: -${value}`, 'warning');
+                });
+            }
+            
+            if (event.outcome.rewards) {
+                Object.entries(event.outcome.rewards).forEach(([reward, value]) => {
+                    this.terminal.addLine('EVENT', `${reward}: +${value}`, 'success');
+                });
+            }
+        }
+        
+        // Add to news feed
+        this.ui.addNewsItem(`Random Event: ${event.event_name}`);
+        
+        // Show notification
+        this.ui.showNotification(`Random Event: ${event.event_name}`, 'warning');
     }
     
     scanSector() {
@@ -318,16 +827,20 @@ class GameEngine {
         })
         .then(response => {
             if (response.success) {
-                this.player = response.player;
+                this.player.credits = response.credits;
+                this.inventory = response.inventory;
                 this.terminal.addLine('TRADE', response.message, 'success');
                 this.ui.updatePlayerDisplay();
-                this.ui.updateInventory();
+                this.ui.updateInventory(this.inventory);
+                this.ui.addNewsItem(`Bought ${quantity} ${itemName}`);
+                this.ui.showNotification(`Bought ${quantity} ${itemName}`, 'success');
             } else {
-                this.terminal.addLine('ERROR', response.detail || response.message, 'error');
+                this.terminal.addLine('ERROR', response.message || 'Trade failed', 'error');
             }
         })
         .catch(error => {
             this.terminal.addLine('ERROR', 'Trade failed: Communication error', 'error');
+            this.ui.updateConnectionStatus(false);
         });
     }
     
@@ -341,16 +854,20 @@ class GameEngine {
         })
         .then(response => {
             if (response.success) {
-                this.player = response.player;
+                this.player.credits = response.credits;
+                this.inventory = response.inventory;
                 this.terminal.addLine('TRADE', response.message, 'success');
                 this.ui.updatePlayerDisplay();
-                this.ui.updateInventory();
+                this.ui.updateInventory(this.inventory);
+                this.ui.addNewsItem(`Sold ${quantity} ${itemName}`);
+                this.ui.showNotification(`Sold ${quantity} ${itemName}`, 'success');
             } else {
-                this.terminal.addLine('ERROR', response.detail || response.message, 'error');
+                this.terminal.addLine('ERROR', response.message || 'Trade failed', 'error');
             }
         })
         .catch(error => {
             this.terminal.addLine('ERROR', 'Trade failed: Communication error', 'error');
+            this.ui.updateConnectionStatus(false);
         });
     }
     
