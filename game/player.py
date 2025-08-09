@@ -192,10 +192,25 @@ class Player:
             skill.gain_experience(random.randint(5, 15))
     
     def add_item(self, item: Item) -> bool:
-        """Add item to inventory"""
+        """Add item to inventory.
+
+        Trade goods with the same name stack using the quantity attribute
+        rather than occupying multiple inventory slots.
+        """
+        # First try to stack trade goods
+        if item.item_type == 'trade_good':
+            for inv_item in self.inventory:
+                if (
+                    inv_item.item_type == 'trade_good'
+                    and inv_item.name.lower() == item.name.lower()
+                ):
+                    inv_item.quantity += item.quantity
+                    return True
+
+        # No existing stack found; check inventory capacity
         if len(self.inventory) >= self.max_inventory:
             return False
-        
+
         self.inventory.append(item)
         return True
     

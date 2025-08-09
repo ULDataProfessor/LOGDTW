@@ -213,18 +213,19 @@ class TradingSystem:
         if player.credits < total_cost:
             return {'success': False, 'message': f'Not enough credits. Need {total_cost}, have {player.credits}'}
         
-        # Create the item and add to inventory
+        # Create the item and add to inventory. The player's add_item method
+        # will handle stacking identical trade goods by quantity.
         item = Item(
             name=item_data['name'],
             description=item_data['description'],
             value=item_data['price'],
-            item_type='trade_good'
+            item_type='trade_good',
+            quantity=quantity
         )
-        
-        # Add items to inventory
-        for _ in range(quantity):
-            if not player.add_item(item):
-                return {'success': False, 'message': 'Inventory full'}
+
+        # Add item (or stack) to inventory
+        if not player.add_item(item):
+            return {'success': False, 'message': 'Inventory full'}
         
         # Deduct credits
         player.spend_credits(total_cost)
