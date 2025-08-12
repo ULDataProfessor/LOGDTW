@@ -1,3 +1,31 @@
+LOGDTW2002 Web (Flask + PWA)
+================================
+
+Run (dev)
+---------
+
+1. `python run.py`
+2. Visit `http://localhost:5002`
+
+PWA
+---
+
+- Manifest: `/manifest.json`
+- Service Worker: `/service-worker.js` (cache-first static, network-first API)
+- Offline page: `/offline.html`
+- Install button in header appears when eligible
+
+Fonts
+-----
+
+- Google Fonts: Orbitron, Share Tech Mono
+
+Directory
+---------
+
+- `templates/index.html` is served by Flask
+- `css/`, `js/`, `icons/`, and PWA assets live under `/web`
+
 # LOGDTW2002 Web Edition (Flask)
 
 A modern web interface for the LOGDTW2002 space trading game built with Flask.

@@ -58,6 +58,9 @@ class Game:
         self.banking_system = None
         self.sos_system = None
         self.save_system = SaveGameSystem()
+        # Auto-save settings
+        self._last_auto_save_ts = 0.0
+        self._auto_save_interval_s = 300  # 5 minutes
         self.achievements = AchievementSystem()
         self.running = False
         self.save_system = SaveGameSystem()
@@ -376,116 +379,119 @@ sectors - All sectors  sector - Current sector
                 
                 # Get player input
                 command = self.input_handler.get_input()
+                if isinstance(command, str):
+                    command = command.strip()
                 
-                # Process command
-                if command.lower() in ['quit', 'exit', 'q']:
+                # Process command (case-insensitive)
+                cmd_lower = command.lower() if isinstance(command, str) else ''
+                if cmd_lower in ['quit', 'exit', 'q']:
                     if Confirm.ask("Are you sure you want to quit?"):
                         self.running = False
                         break
                 
-                elif command.lower() in ['help', 'h']:
+                elif cmd_lower in ['help', 'h']:
                     self.show_help()
                 
-                elif command.lower() == '?':
+                elif cmd_lower == '?':
                     self.show_quick_help()
                 
-                elif command.lower() in ['status', 'stats', 's']:
+                elif cmd_lower in ['status', 'stats', 's']:
                     self.display.show_detailed_status(self.player)
                 
-                elif command.lower() in ['inventory', 'inv', 'i']:
+                elif cmd_lower in ['inventory', 'inv', 'i']:
                     self.display.show_inventory(self.player)
                 
-                elif command.lower() in ['look', 'l']:
+                elif cmd_lower in ['look', 'l']:
                     self.display.show_location_description(self.world.get_current_location())
                 
-                elif command.lower() in ['north', 'n', 'south', 's', 'east', 'e', 'west', 'w']:
+                elif cmd_lower in ['north', 'n', 'south', 's', 'east', 'e', 'west', 'w']:
                     self.handle_movement(command.lower())
                 
-                elif command.lower() == 'land':
+                elif cmd_lower == 'land':
                     result = self.world.land_on_planet()
                     self.console.print(result['message'])
                 
-                elif command.lower().startswith('jump'):
+                elif cmd_lower.startswith('jump'):
                     self.handle_travel(command)
                 
-                elif command.lower() == 'map':
+                elif cmd_lower == 'map':
                     self.console.print(self.world.get_map_display())
                 
-                elif command.lower() == 'sectors':
+                elif cmd_lower == 'sectors':
                     self.show_sectors()
                 
-                elif command.lower() == 'sector':
+                elif cmd_lower == 'sector':
                     self.show_current_sector()
                 
-                elif command.lower().startswith('warp'):
+                elif cmd_lower.startswith('warp'):
                     self.handle_warp(command)
                 
-                elif command.lower().startswith('buy') or command.lower().startswith('sell'):
+                elif cmd_lower.startswith('buy') or cmd_lower.startswith('sell'):
                     self.handle_trading(command)
                 
-                elif command.lower() == 'market':
+                elif cmd_lower == 'market':
                     self.show_market_info()
                 
-                elif command.lower() == 'trade routes':
+                elif cmd_lower == 'trade routes':
                     self.show_trade_routes()
                 
-                elif command.lower() == 'trade history':
+                elif cmd_lower == 'trade history':
                     self.show_trade_history()
                 
-                elif command.lower().startswith('talk') or command.lower().startswith('chat'):
+                elif cmd_lower.startswith('talk') or cmd_lower.startswith('chat'):
                     self.handle_npc_interaction(command)
                 
-                elif command.lower() == 'npcs':
+                elif cmd_lower == 'npcs':
                     self.show_npcs()
                 
-                elif command.lower() == 'holodeck':
+                elif cmd_lower == 'holodeck':
                     self.show_holodeck()
                 
-                elif command.lower() == 'programs':
+                elif cmd_lower == 'programs':
                     self.show_holodeck_programs()
                 
-                elif command.lower().startswith('start'):
+                elif cmd_lower.startswith('start'):
                     self.handle_holodeck_program(command)
                 
-                elif command.lower() == 'stocks':
+                elif cmd_lower == 'stocks':
                     self.show_stock_market()
                 
-                elif command.lower() == 'bank':
+                elif cmd_lower == 'bank':
                     self.show_banking()
                 
-                elif command.lower() == 'sos':
+                elif cmd_lower == 'sos':
                     self.show_sos_signals()
                 
-                elif command.lower().startswith('rescue'):
+                elif cmd_lower.startswith('rescue'):
                     self.handle_rescue(command)
                 
-                elif command.lower().startswith('ship install'):
+                elif cmd_lower.startswith('ship install'):
                     self.handle_ship_install(command)
-                elif command.lower().startswith('ship remove'):
+                elif cmd_lower.startswith('ship remove'):
                     self.handle_ship_remove(command)
-                elif command.lower() == 'ship':
+                elif cmd_lower == 'ship':
                     self.show_ship_status()
                 
-                elif command.lower() == 'cargo':
+                elif cmd_lower == 'cargo':
                     self.show_cargo()
                 
-                elif command.lower().startswith('equip'):
+                elif cmd_lower.startswith('equip'):
                     self.handle_equipment(command)
                 
-                elif command.lower().startswith('rename'):
+                elif cmd_lower.startswith('rename'):
                     self.handle_rename(command)
                 
-                elif command.lower().startswith('shipname'):
+                elif cmd_lower.startswith('shipname'):
                     self.handle_ship_rename(command)
 
-                elif command.lower() == 'skills':
+                elif cmd_lower == 'skills':
                     self.show_skills()
-                elif command.lower() == 'save':
+                elif cmd_lower == 'save':
                     save_name = Prompt.ask('Save name', default='save')
                     state = self._create_game_state()
                     self.save_system.save_game(state, save_name, 'Manual save', overwrite=True)
 
-                elif command.lower() == 'load':
+                elif cmd_lower == 'load':
                     saves = self.save_system.get_save_list()
                     if not saves:
                         self.console.print("[yellow]No save games available.[/yellow]")
@@ -498,17 +504,17 @@ sectors - All sectors  sector - Current sector
                         if state:
                             self._apply_game_state(state)
 
-                elif command.lower() == 'clear':
+                elif cmd_lower == 'clear':
                     self.clear_screen()
                 
-                elif command.lower().startswith('attack'):
+                elif cmd_lower.startswith('attack'):
                     self.handle_combat(command)
                 
-                elif command.lower() in ['quests', 'missions']:
+                elif cmd_lower in ['quests', 'missions']:
                     self.quest_system.generate_dynamic_quest(self.player)
                     self.display.show_quests(self.quest_system.get_available_quests(self.player))
                 
-                elif command.lower() in ['genesis', 'fire genesis']:
+                elif cmd_lower in ['genesis', 'fire genesis']:
                     if self.world.is_on_planet_surface():
                         self.console.print("[red]You must be in space to use the Genesis Torpedo.[/red]")
                     else:
@@ -517,7 +523,7 @@ sectors - All sectors  sector - Current sector
                         if result.get('success'):
                             self.console.print(f"[green]You can now 'jump {result['planet']}' or 'land' to visit the new planet![/green]")
                 
-                elif command.lower() in ['counselor', 'ai']:
+                elif cmd_lower in ['counselor', 'ai']:
                     self.handle_counselor_interaction()
 
                 else:
@@ -532,6 +538,21 @@ sectors - All sectors  sector - Current sector
                     break
             except Exception as e:
                 self.console.print(f"[red]Error: {e}[/red]")
+
+    def _auto_save(self):
+        """Perform periodic autosave using SaveGameSystem.auto_save."""
+        try:
+            now = time.time()
+            if now - self._last_auto_save_ts < self._auto_save_interval_s:
+                return
+            game_state = self._create_game_state()
+            did_save = self.save_system.auto_save(game_state)
+            if did_save:
+                self._last_auto_save_ts = now
+                self.console.print("[dim]Auto-saved game.[/dim]")
+        except Exception as e:
+            # Do not crash game loop on autosave errors
+            self.console.print(f"[yellow]Auto-save skipped: {e}[/yellow]")
 
     def _check_random_events(self):
         """Check for random events"""
