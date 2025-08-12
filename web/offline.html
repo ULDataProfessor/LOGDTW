@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LOGDTW2002 - Offline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e27; --fg: #e0e6ed; --accent: #64ffda; --muted: #a0a6ad;
+    }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; 
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%); color:var(--fg);
+      font-family: 'Orbitron', system-ui, sans-serif; }
+    .card { max-width: 540px; padding: 24px; border: 2px solid #2a2f4a; border-radius: 12px;
+      background: rgba(42, 47, 74, 0.9); text-align:center; }
+    h1 { margin: 0 0 12px; color: var(--accent); letter-spacing: 2px; }
+    p { margin: 8px 0; color: var(--muted); font-family: 'Share Tech Mono', monospace; }
+    .btn { display:inline-block; margin-top: 16px; padding: 10px 16px; border-radius: 8px;
+      border: 2px solid var(--accent); color:#0a0e27; background: var(--accent);
+      text-decoration:none; font-weight: 700; letter-spacing:1px; }
+  </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>You're Offline</h1>
+      <p>The LOGDTW2002 web app is available as a PWA.</p>
+      <p>Reconnect to access live galaxy data and markets.</p>
+      <a class="btn" href="/">Retry</a>
+    </div>
+  </body>
+</html>
+
+

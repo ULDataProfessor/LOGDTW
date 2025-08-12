@@ -6,7 +6,7 @@
     <title>LOGDTW2002 - Web Edition</title>
     <link rel="stylesheet" href="{{ url_for('css_files', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('css_files', filename='terminal.css') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+    <link rel="manifest" href="{{ url_for('manifest_json') }}" />
     <meta name="theme-color" content="#64ffda" />
 
     <!-- Google Fonts: Orbitron and Share Tech Mono -->
@@ -25,6 +25,7 @@
                     <span class="title-sub">Legend of the Green Dragon meets TW2002</span>
                 </h1>
                 <div class="header-actions">
+                    <button class="btn btn-secondary" id="install-btn" style="display:none">⬇ Install App</button>
                     <button class="btn btn-primary" onclick="saveGame()">💾 Save</button>
                     <button class="btn btn-secondary" onclick="loadGame()">📁 Load</button>
                     <button class="btn btn-info" onclick="showHelp()">❓ Help</button>
@@ -293,6 +294,42 @@
           navigator.serviceWorker.register('/service-worker.js').catch(console.error);
         });
       }
+    </script>
+    <script>
+      // PWA Install handling
+      (function() {
+        const installBtn = document.getElementById('install-btn');
+        let deferredPrompt = null;
+
+        // Hide button if in standalone display mode already
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        if (isStandalone) {
+          installBtn && (installBtn.style.display = 'none');
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          if (!isStandalone && installBtn) installBtn.style.display = 'inline-block';
+        });
+
+        installBtn && installBtn.addEventListener('click', async () => {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          try {
+            const choice = await deferredPrompt.userChoice;
+            if (choice.outcome === 'accepted') {
+              installBtn.style.display = 'none';
+            }
+          } catch (_) {}
+          deferredPrompt = null;
+        });
+
+        window.addEventListener('appinstalled', () => {
+          if (installBtn) installBtn.style.display = 'none';
+          try { localStorage.setItem('pwaInstalled', '1'); } catch (_) {}
+        });
+      })();
     </script>
 </body>
 </html>

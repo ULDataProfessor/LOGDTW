@@ -1,39 +1,70 @@
-const CACHE_NAME = 'logdtw2002-cache-v1';
+const STATIC_CACHE = 'logdtw2002-static-v1';
+const RUNTIME_CACHE = 'logdtw2002-runtime-v1';
 const ASSETS = [
   '/',
-  '/templates/index.html',
   '/css/style.css',
   '/css/terminal.css',
-  '/js/game.js'
+  '/js/game.js',
+  '/offline.html',
+  '/icons/icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(STATIC_CACHE).then((cache) => cache.addAll(ASSETS))
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => k !== STATIC_CACHE && k !== RUNTIME_CACHE)
+          .map((k) => caches.delete(k))
+      )
     )
   );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(request).then((cached) =>
-      cached || fetch(request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-        return response;
-      }).catch(() => cached)
-    )
-  );
+  const url = new URL(request.url);
+  const isAPI = url.pathname.startsWith('/api/');
+
+  if (isAPI) {
+    // Network-first for API
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+  } else {
+    // Cache-first for static assets
+    event.respondWith(
+      caches.match(request).then((cached) =>
+        cached || fetch(request)
+          .then((response) => {
+            const copy = response.clone();
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
+            return response;
+          })
+          .catch(() => {
+            if (request.mode === 'navigate') {
+              return caches.match('/offline.html');
+            }
+          })
+      )
+    );
+  }
 });
 
 
