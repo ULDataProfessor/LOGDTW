@@ -520,6 +520,35 @@ sectors - All sectors  sector - Current sector
 
                 elif cmd_lower == "sectors":
                     self.show_sectors()
+                
+                elif cmd_lower.startswith("db sector"):
+                    # db sector <id>
+                    parts = command.split()
+                    if len(parts) < 3:
+                        self.console.print("[yellow]Usage: db sector <id>[/yellow]")
+                    else:
+                        try:
+                            sid = int(parts[2])
+                            rec = self.world.get_or_create_sector(sid)
+                            self.console.print(f"[bold cyan]Sector {sid}[/bold cyan] {rec['name']} | faction={rec['faction']} region={rec['region']} danger={rec['danger_level']}")
+                            self.console.print(f"services: market={rec['has_market']} outpost={rec['has_outpost']} station={rec['has_station']} research={rec['has_research']} mining={rec['has_mining']}")
+                            self.console.print(f"connections: {', '.join(map(str, rec['connections']))}")
+                        except Exception as e:
+                            self.console.print(f"[red]Error: {e}[/red]")
+
+                elif cmd_lower.startswith("db neighbors"):
+                    # db neighbors <id>
+                    parts = command.split()
+                    if len(parts) < 3:
+                        self.console.print("[yellow]Usage: db neighbors <id>[/yellow]")
+                    else:
+                        try:
+                            sid = int(parts[2])
+                            rec = self.world.get_or_create_sector(sid)
+                            neigh = rec.get('connections', [])
+                            self.console.print(f"[bold cyan]Neighbors of Sector {sid}[/bold cyan]: {', '.join(map(str, neigh))}")
+                        except Exception as e:
+                            self.console.print(f"[red]Error: {e}[/red]")
 
                 elif cmd_lower.startswith("capture"):
                     result = self.empire.capture_current_planet(self.player, self.world)

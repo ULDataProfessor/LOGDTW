@@ -775,6 +775,16 @@ class DynamicMarketSystem:
     def get_sector_prices(self, sector_id: int) -> Dict[str, float]:
         """Get commodity prices for a specific sector"""
         base_prices = {}
+        # Consult persistent sector info for service availability
+        has_market_flag = True
+        try:
+            from game.world import World
+
+            w = World()
+            rec = w.get_or_create_sector(sector_id)
+            has_market_flag = bool(rec.get("has_market", 1))
+        except Exception:
+            has_market_flag = True
 
         for commodity_name, market_data in self.commodities.items():
             price = market_data.current_price
@@ -806,6 +816,9 @@ class DynamicMarketSystem:
                 variance = (1.0 - economy.stability) * 0.2
                 price *= random.uniform(1.0 - variance, 1.0 + variance)
 
+            # If no market in this sector, apply availability penalty (prices higher/scarcer)
+            if not has_market_flag:
+                price *= 1.25
             base_prices[commodity_name] = max(1, int(price))
 
         return base_prices

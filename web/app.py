@@ -1056,6 +1056,46 @@ def get_sector_details(sector_id):
         return jsonify(success=False, message=f"Error generating sector: {str(e)}")
 
 
+@app.route("/api/sector/persistent/<int:sector_id>", methods=["GET"])
+def api_sector_persistent(sector_id: int):
+    """Expose DB-backed persistent sector record (id, flags, connections)."""
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message="World not available"), 501
+    try:
+        w = World()
+        rec = w.get_or_create_sector(sector_id)
+        return jsonify(success=True, sector=rec)
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+
+@app.route("/api/sector/discovery/<int:sector_id>", methods=["POST"])
+def api_sector_discovery(sector_id: int):
+    """Mark sector explored/charted for the current player and global DB."""
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message="World not available"), 501
+    data = request.get_json() or {}
+    explored = bool(data.get("explored", True))
+    charted = bool(data.get("charted", False))
+    try:
+        player = get_current_player()
+        if explored:
+            v = SectorVisibility.query.filter_by(player_id=player.id, sector_id=sector_id).first()
+            if not v:
+                v = SectorVisibility(player_id=player.id, sector_id=sector_id, discovered=True)
+                db.session.add(v)
+            else:
+                v.discovered = True
+            db.session.commit()
+        # Global persistent flags
+        w = World()
+        if explored:
+            w.mark_sector_explored(sector_id)
+        if charted:
+            w.mark_sector_charted(sector_id)
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
 @app.route("/api/scan_sector", methods=["POST"])
 def scan_current_sector():
     """Perform a detailed scan of the current sector"""
