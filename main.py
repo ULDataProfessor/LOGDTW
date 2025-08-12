@@ -550,6 +550,32 @@ sectors - All sectors  sector - Current sector
                         except Exception as e:
                             self.console.print(f"[red]Error: {e}[/red]")
 
+                elif cmd_lower.startswith("db explore"):
+                    # db explore <id>
+                    parts = command.split()
+                    if len(parts) < 3:
+                        self.console.print("[yellow]Usage: db explore <id>[/yellow]")
+                    else:
+                        try:
+                            sid = int(parts[2])
+                            self.world.mark_sector_explored(sid)
+                            self.console.print(f"[green]Sector {sid} marked explored in persistent DB.[/green]")
+                        except Exception as e:
+                            self.console.print(f"[red]Error: {e}[/red]")
+
+                elif cmd_lower.startswith("db chart"):
+                    # db chart <id>
+                    parts = command.split()
+                    if len(parts) < 3:
+                        self.console.print("[yellow]Usage: db chart <id>[/yellow]")
+                    else:
+                        try:
+                            sid = int(parts[2])
+                            self.world.mark_sector_charted(sid)
+                            self.console.print(f"[green]Sector {sid} marked charted in persistent DB.[/green]")
+                        except Exception as e:
+                            self.console.print(f"[red]Error: {e}[/red]")
+
                 elif cmd_lower.startswith("capture"):
                     result = self.empire.capture_current_planet(self.player, self.world)
                     self.console.print(result["message"])

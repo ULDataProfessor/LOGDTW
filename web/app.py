@@ -1105,6 +1105,20 @@ def api_sector_discovery(sector_id: int):
         return jsonify(success=True)
     except Exception as e:
         return jsonify(success=False, message=str(e)), 500
+
+
+@app.route("/api/sector/connections/<int:sector_id>", methods=["GET"])
+def api_sector_connections(sector_id: int):
+    """Lightweight neighbor list for galaxy sidebar."""
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message="World not available"), 501
+    try:
+        w = World()
+        rec = w.get_or_create_sector(sector_id)
+        neighbors = rec.get("connections", [])
+        return jsonify(success=True, sector=sector_id, connections=neighbors)
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
 @app.route("/api/scan_sector", methods=["POST"])
 def scan_current_sector():
     """Perform a detailed scan of the current sector"""

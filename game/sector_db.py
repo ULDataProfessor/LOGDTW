@@ -55,6 +55,14 @@ class SectorRepository:
                 )
                 """
             )
+            # Indexes for query performance
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sectors_explored ON sectors(explored)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sectors_charted ON sectors(charted)"
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_sectors_id ON sectors(id)")
             conn.commit()
 
     def upsert_sector(self, record: Dict) -> None:
@@ -137,3 +145,83 @@ class SectorRepository:
         with self._connect() as conn:
             cur = conn.execute("SELECT COUNT(*) FROM sectors")
             return int(cur.fetchone()[0] or 0)
+
+    # ----------------------------
+    # Integrity and maintenance
+    # ----------------------------
+    def check_and_fix_bidirectional(self) -> int:
+        """Ensure all connections are bidirectional. Returns number of fixes made."""
+        fixes = 0
+        with self._connect() as conn:
+            cur = conn.execute("SELECT id, connections FROM sectors")
+            rows = cur.fetchall()
+            id_to_conns = {}
+            for sid, conns_json in rows:
+                try:
+                    id_to_conns[sid] = set(json.loads(conns_json or "[]"))
+                except Exception:
+                    id_to_conns[sid] = set()
+
+            # Fix missing reverse links
+            for a, conns in id_to_conns.items():
+                for b in list(conns):
+                    if b == a:
+                        continue
+                    if b not in id_to_conns:
+                        # Skip dangling reference
+                        continue
+                    if a not in id_to_conns[b]:
+                        id_to_conns[b].add(a)
+                        fixes += 1
+
+            # Persist normalized connections (unique, sorted)
+            for sid, conns in id_to_conns.items():
+                norm = sorted(set(int(x) for x in conns if isinstance(x, int) or str(x).isdigit()))
+                conn.execute(
+                    "UPDATE sectors SET connections=? WHERE id=?",
+                    (json.dumps(norm), sid),
+                )
+            conn.commit()
+        return fixes
+
+    def export_graph_json(self, file_path: str) -> None:
+        """Export sectors and edges to a JSON file for debugging/visualization."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT id, name, faction, region, danger_level, has_market, has_outpost, has_station, has_research, has_mining, connections, explored, charted FROM sectors"
+            )
+            nodes = []
+            edges = set()
+            for row in cur.fetchall():
+                (sid, name, faction, region, danger, mkt, outp, stat, res, mino, conns_json, explored, charted) = row
+                nodes.append(
+                    {
+                        "id": sid,
+                        "name": name,
+                        "faction": faction,
+                        "region": region,
+                        "danger_level": danger,
+                        "has_market": mkt,
+                        "has_outpost": outp,
+                        "has_station": stat,
+                        "has_research": res,
+                        "has_mining": mino,
+                        "explored": explored,
+                        "charted": charted,
+                    }
+                )
+                try:
+                    conns = json.loads(conns_json or "[]")
+                except Exception:
+                    conns = []
+                for b in conns:
+                    a, b2 = int(sid), int(b)
+                    if a == b2:
+                        continue
+                    edge = (a, b2) if a < b2 else (b2, a)
+                    edges.add(edge)
+
+            data = {"nodes": nodes, "edges": sorted(list(edges))}
+            os.makedirs(os.path.dirname(file_path) or ".", exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
