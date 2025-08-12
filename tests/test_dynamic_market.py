@@ -37,4 +37,3 @@ def test_event_effect(player, world):
     updated_price = market.commodities["AI Cores"].current_price
     assert updated_price == pytest.approx(10587.776386834694)
     assert updated_price < initial_price
-

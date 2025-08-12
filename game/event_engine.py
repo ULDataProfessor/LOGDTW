@@ -43,9 +43,7 @@ class EventEngine:
     # ------------------------------------------------------------------
     # Event generation helpers
     # ------------------------------------------------------------------
-    def generate_sector_event(
-        self, sector_id: int, event_type: Optional[str] = None
-    ) -> GameEvent:
+    def generate_sector_event(self, sector_id: int, event_type: Optional[str] = None) -> GameEvent:
         """Generate a sector-wide event.
 
         Parameters
@@ -148,4 +146,3 @@ class EventEngine:
         event.resolved = True
         if event in self.active_events:
             self.active_events.remove(event)
-

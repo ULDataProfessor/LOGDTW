@@ -5,6 +5,7 @@ from typing import Dict, Optional
 @dataclass
 class ShipComponent:
     """Represents an upgrade component for a ship."""
+
     name: str
     slot: str
     stats: Dict[str, int]
@@ -13,17 +14,22 @@ class ShipComponent:
 @dataclass
 class ShipCustomization:
     """Manages ship upgrade slots and installation/removal of components."""
+
     ship: Dict[str, int]
-    slots: Dict[str, Optional[ShipComponent]] = field(default_factory=lambda: {
-        "engine": None,
-        "shield": None,
-        "weapon": None,
-    })
-    catalog: Dict[str, ShipComponent] = field(default_factory=lambda: {
-        "engine_mk2": ShipComponent("Engine Mk II", "engine", {"engine_power": 20}),
-        "shield_mk2": ShipComponent("Shield Mk II", "shield", {"shield_capacity": 50}),
-        "weapon_mk2": ShipComponent("Weapon Mk II", "weapon", {"weapon_systems": 30}),
-    })
+    slots: Dict[str, Optional[ShipComponent]] = field(
+        default_factory=lambda: {
+            "engine": None,
+            "shield": None,
+            "weapon": None,
+        }
+    )
+    catalog: Dict[str, ShipComponent] = field(
+        default_factory=lambda: {
+            "engine_mk2": ShipComponent("Engine Mk II", "engine", {"engine_power": 20}),
+            "shield_mk2": ShipComponent("Shield Mk II", "shield", {"shield_capacity": 50}),
+            "weapon_mk2": ShipComponent("Weapon Mk II", "weapon", {"weapon_systems": 30}),
+        }
+    )
 
     def __post_init__(self) -> None:
         # Load any existing upgrades from the ship data without re-applying stats

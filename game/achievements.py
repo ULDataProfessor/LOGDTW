@@ -8,6 +8,7 @@ from game.world import World
 @dataclass
 class Achievement:
     """Represents a single achievement definition"""
+
     id: str
     name: str
     description: str

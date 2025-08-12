@@ -14,11 +14,13 @@ class CrewMember:
 
     name: str
     role: str = "unassigned"
-    skills: Dict[str, int] = field(default_factory=lambda: {
-        "combat": 0,
-        "piloting": 0,
-        "trading": 0,
-    })
+    skills: Dict[str, int] = field(
+        default_factory=lambda: {
+            "combat": 0,
+            "piloting": 0,
+            "trading": 0,
+        }
+    )
     morale: int = 100  # 0-100
 
     def get_bonus(self, category: str) -> float:

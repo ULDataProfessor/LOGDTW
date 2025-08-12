@@ -43,4 +43,3 @@ def test_buy_item_stacks_in_inventory():
     item = player.get_item("Energy Cells")
     assert item.quantity == 5
     assert len(player.inventory) == inventory_count
-

@@ -79,10 +79,19 @@ class SectorRepository:
                     connections=excluded.connections
                 """,
                 (
-                    record['id'], record['name'], record['faction'], record['region'], record['danger_level'],
-                    int(record.get('has_market', 0)), int(record.get('has_outpost', 0)), int(record.get('has_station', 0)),
-                    int(record.get('has_research', 0)), int(record.get('has_mining', 0)),
-                    json.dumps(record.get('connections', [])), int(record.get('explored', 0)), int(record.get('charted', 0))
+                    record["id"],
+                    record["name"],
+                    record["faction"],
+                    record["region"],
+                    record["danger_level"],
+                    int(record.get("has_market", 0)),
+                    int(record.get("has_outpost", 0)),
+                    int(record.get("has_station", 0)),
+                    int(record.get("has_research", 0)),
+                    int(record.get("has_mining", 0)),
+                    json.dumps(record.get("connections", [])),
+                    int(record.get("explored", 0)),
+                    int(record.get("charted", 0)),
                 ),
             )
             conn.commit()
@@ -95,7 +104,7 @@ class SectorRepository:
                 return None
             columns = [col[0] for col in cur.description]
             rec = dict(zip(columns, row))
-            rec['connections'] = json.loads(rec['connections'] or '[]')
+            rec["connections"] = json.loads(rec["connections"] or "[]")
             return rec
 
     def mark_explored(self, sector_id: int) -> None:
@@ -116,15 +125,15 @@ class SectorRepository:
                 cur = conn.execute("SELECT connections FROM sectors WHERE id=?", (x,))
                 row = cur.fetchone()
                 if row:
-                    existing = json.loads(row[0] or '[]')
+                    existing = json.loads(row[0] or "[]")
                     if y not in existing:
                         existing.append(y)
-                        conn.execute("UPDATE sectors SET connections=? WHERE id=?", (json.dumps(existing), x))
+                        conn.execute(
+                            "UPDATE sectors SET connections=? WHERE id=?", (json.dumps(existing), x)
+                        )
             conn.commit()
 
     def get_total_count(self) -> int:
         with self._connect() as conn:
             cur = conn.execute("SELECT COUNT(*) FROM sectors")
             return int(cur.fetchone()[0] or 0)
-
-

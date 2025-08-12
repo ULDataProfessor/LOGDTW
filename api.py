@@ -12,19 +12,23 @@ app = FastAPI()
 # In-memory session store
 sessions: Dict[str, Dict] = {}
 
+
 class TravelRequest(BaseModel):
     sector: int
+
 
 class TradeRequest(BaseModel):
     item: str
     quantity: int
     trade_action: str  # "buy" or "sell"
 
+
 def get_session(x_token: str = Header(...)):
     session = sessions.get(x_token)
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
     return session
+
 
 def serialize_item(item: Item) -> Dict:
     return {
@@ -34,6 +38,7 @@ def serialize_item(item: Item) -> Dict:
         "value": item.value,
         "item_type": item.item_type,
     }
+
 
 def serialize_player(player: Player) -> Dict:
     return {
@@ -51,6 +56,7 @@ def serialize_player(player: Player) -> Dict:
         "skills": {k: v.level for k, v in player.skills.items()},
     }
 
+
 def serialize_world(world: World) -> Dict:
     return {
         "current_location": world.current_location,
@@ -58,6 +64,7 @@ def serialize_world(world: World) -> Dict:
         "discovered_sectors": list(world.discovered_sectors),
         "turn_counter": getattr(world, "turn_counter", 0),
     }
+
 
 @app.post("/api/session")
 def create_session():
@@ -68,6 +75,7 @@ def create_session():
     sessions[token] = {"player": player, "world": world, "trading": trading}
     return {"token": token}
 
+
 @app.get("/api/status")
 def get_status(session: Dict = Depends(get_session)):
     player = session["player"]
@@ -77,6 +85,7 @@ def get_status(session: Dict = Depends(get_session)):
         "player": serialize_player(player),
         "world": serialize_world(world),
     }
+
 
 @app.post("/api/travel")
 def travel(req: TravelRequest, session: Dict = Depends(get_session)):
@@ -93,6 +102,7 @@ def travel(req: TravelRequest, session: Dict = Depends(get_session)):
         "player": serialize_player(player),
         "world": serialize_world(world),
     }
+
 
 @app.post("/api/trade")
 def trade(req: TradeRequest, session: Dict = Depends(get_session)):

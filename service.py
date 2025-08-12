@@ -5,6 +5,7 @@ from pydantic import BaseModel
 # In-memory game state
 # ---------------------------------------------------------------------------
 
+
 def _default_state():
     return {
         "player": {

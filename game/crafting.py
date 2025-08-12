@@ -1,4 +1,5 @@
 """Crafting system with recipes and crafting API."""
+
 from __future__ import annotations
 
 from copy import deepcopy

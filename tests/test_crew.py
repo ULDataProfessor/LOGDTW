@@ -3,7 +3,7 @@ import sys
 import pytest
 
 # Ensure root path for module imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from game.player import Player
 from game.trading import TradingSystem
