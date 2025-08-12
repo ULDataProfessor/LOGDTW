@@ -1618,9 +1618,10 @@ class GameEngine {
         this.terminal.addLine('SYSTEM', 'Auto-save completed', 'info');
     }
     
-    sendRequest(action, data = {}) {
+    sendRequest(actionOrEndpoint, methodOrData = 'POST', maybeData = undefined) {
         const endpoints = {
             get_status: 'status',
+            status: 'status',
             travel: 'travel',
             trade: 'trade',
             market: 'market',
@@ -1628,24 +1629,30 @@ class GameEngine {
             missions: 'missions',
             save_game: 'save',
             load_game: 'load',
+            save: 'save',
+            load: 'load',
             galaxy: 'galaxy'
         };
 
-        const endpoint = endpoints[action] || action;
+        const endpoint = endpoints[actionOrEndpoint] || actionOrEndpoint;
         const apiBase = window.API_BASE || '/api';
-        
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        };
 
-        // GET requests for certain endpoints
-        if (['get_status', 'market', 'missions', 'galaxy'].includes(action)) {
-            options.method = 'GET';
-            delete options.body;
+        // Interpret arguments: support (endpoint, 'GET'|'POST', data) and (endpoint, data)
+        let method = 'POST';
+        let data = {};
+        if (typeof methodOrData === 'string' && (methodOrData.toUpperCase() === 'GET' || methodOrData.toUpperCase() === 'POST')) {
+            method = methodOrData.toUpperCase();
+            data = maybeData || {};
+        } else {
+            data = methodOrData || {};
+        }
+
+        const options = {
+            method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        if (method !== 'GET') {
+            options.body = JSON.stringify(data);
         }
 
         return fetch(`${apiBase}/${endpoint}`, options)
