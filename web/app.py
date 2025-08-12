@@ -761,6 +761,20 @@ def get_market():
         prices = markets.get_sector_prices(current_sector)
         economy_info = markets.sector_economies[current_sector]
 
+        # Consistent notes schema: always a list of strings
+        notes = []
+        if current_sector == 1:
+            notes.append(
+                "Exclusive exports: Genesis Blueprint Fragment, Void Crystal, Ancient Data Shard, Prototype AI Core, Federation Seal (Rare)."
+            )
+        try:
+            for ev in getattr(markets, "active_events", []):
+                if getattr(ev, "sector_id", None) == current_sector and ev.description:
+                    turns_left = max(0, ev.duration - (markets.current_turn - ev.start_turn))
+                    notes.append(f"Rumor: {ev.description} (turns left {turns_left})")
+        except Exception:
+            pass
+
         return jsonify(
             {
                 "success": True,
@@ -770,12 +784,7 @@ def get_market():
                     "specializations": economy_info.specializations,
                     "market_condition": economy_info.market_condition.value,
                 },
-                "notes": (
-                    "Sector 1 exclusive exports detected: Genesis Blueprint Fragment, Void Crystal, Ancient Data Shard, "
-                    "Prototype AI Core, Federation Seal (Rare)."
-                    if current_sector == 1
-                    else ""
-                ),
+                "notes": notes,
             }
         )
     else:

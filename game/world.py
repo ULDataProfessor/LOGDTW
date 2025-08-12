@@ -1068,8 +1068,8 @@ class World:
         ]
         return random.choice(conditions)
 
-    def get_sector_info(self) -> Dict:
-        """Get information about current space sector"""
+    def get_current_sector_info(self) -> Dict:
+        """Get information about current space sector (distinct name)."""
         current_loc = self.get_current_location()
         return {
             "name": current_loc.sector if current_loc else "Unknown",
