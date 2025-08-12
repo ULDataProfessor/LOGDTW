@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from game.player import Item
 from game.sos_system import SOSSystem
+from .sector_db import SectorRepository
 
 @dataclass
 class Location:
@@ -140,7 +141,7 @@ class PlanetSurface:
 class World:
     """Game world with locations and navigation - TW2002 style"""
 
-    def __init__(self, event_engine=None):
+    def __init__(self, event_engine=None, max_sectors: int = 10_000, db_path: str = None):
         """Create a new world.
 
         Parameters
@@ -170,6 +171,11 @@ class World:
         self.on_planet_surface = False
         self.planet_surface = None
         
+        # Sector persistence
+        self.max_sectors = max_sectors
+        default_db = os.path.join(os.path.expanduser('~'), '.logdtw2002', 'sectors.db')
+        self.sector_repo = SectorRepository(db_path or default_db)
+
         # Initialize the game world
         self._create_world()
         
@@ -194,6 +200,84 @@ class World:
 
         self.on_planet_surface = False
         self.planet_surface = None
+
+        # Ensure first 10 sectors exist as Federation space; others generated on demand
+        self._ensure_initial_sectors()
+
+    # ------------------------------------------------------------------
+    # Sector generation and persistence
+    # ------------------------------------------------------------------
+    def _ensure_initial_sectors(self) -> None:
+        import random
+        # Pre-create sectors 1..10 as Federation
+        for sid in range(1, 11):
+            if not self.sector_repo.get_sector(sid):
+                rec = {
+                    'id': sid,
+                    'name': self.sector_names.get(sid, f'Sector {sid}') if hasattr(self, 'sector_names') else f'Sector {sid}',
+                    'faction': 'Federation',
+                    'region': 'Federation',
+                    'danger_level': random.randint(1, 3),
+                    'has_market': 1,
+                    'has_outpost': 1 if sid in (1, 2, 3) else 0,
+                    'has_station': 1,
+                    'has_research': 1 if sid in (3, 6) else 0,
+                    'has_mining': 1 if sid in (2, 4) else 0,
+                    'connections': [],
+                    'explored': 1 if sid == 1 else 0,
+                    'charted': 1 if sid == 1 else 0,
+                }
+                self.sector_repo.upsert_sector(rec)
+        # Simple spine connections 1-2-3-...-10
+        for sid in range(1, 10):
+            self.sector_repo.add_bidirectional_connection(sid, sid + 1)
+
+    def _generate_sector_record(self, sector_id: int) -> Dict:
+        import random
+        region = 'Nebula'
+        name = f'Nebula {sector_id}'
+        faction = random.choice(['Neutral', 'Scientists', 'Traders', 'Pirates'])
+        danger = random.randint(2, 9)
+        rec = {
+            'id': sector_id,
+            'name': name,
+            'faction': faction,
+            'region': region,
+            'danger_level': danger,
+            'has_market': 1 if random.random() < 0.35 else 0,
+            'has_outpost': 1 if random.random() < 0.25 else 0,
+            'has_station': 1 if random.random() < 0.2 else 0,
+            'has_research': 1 if random.random() < 0.15 else 0,
+            'has_mining': 1 if random.random() < 0.3 else 0,
+            'connections': [],
+            'explored': 0,
+            'charted': 0,
+        }
+        return rec
+
+    def get_or_create_sector(self, sector_id: int) -> Dict:
+        if sector_id < 1 or sector_id > self.max_sectors:
+            raise ValueError('Sector out of bounds')
+        rec = self.sector_repo.get_sector(sector_id)
+        if rec:
+            return rec
+        # Create
+        rec = self._generate_sector_record(sector_id)
+        self.sector_repo.upsert_sector(rec)
+        # Connect interestingly: random 2-4 links to near ids
+        import random
+        num_links = random.randint(2, 4)
+        candidates = [i for i in range(max(1, sector_id - 7), min(self.max_sectors, sector_id + 7)) if i != sector_id]
+        random.shuffle(candidates)
+        for target in candidates[:num_links]:
+            self.sector_repo.add_bidirectional_connection(sector_id, target)
+        return self.sector_repo.get_sector(sector_id) or rec
+
+    def mark_sector_explored(self, sector_id: int) -> None:
+        self.sector_repo.mark_explored(sector_id)
+
+    def mark_sector_charted(self, sector_id: int) -> None:
+        self.sector_repo.mark_charted(sector_id)
         
     def _create_world(self):
         """Create the game world with TW2002-style numbered sectors"""
@@ -571,8 +655,13 @@ class World:
         self.travel_time = connection.travel_time
         self.travel_start_time = time.time()
         
-        # Discover the sector
+        # Discover and persist the sector
         self.discovered_sectors.add(self.sector_names.get(sector_number, str(sector_number)))
+        try:
+            self.get_or_create_sector(sector_number)
+            self.mark_sector_explored(sector_number)
+        except Exception:
+            pass
         
         return {
             'success': True,
@@ -645,6 +734,11 @@ class World:
         self.current_location = self.travel_destination
         self.player_coordinates = dest_location.coordinates
         self.current_sector = dest_location.sector
+        # Mark charted in DB on arrival
+        try:
+            self.mark_sector_charted(self.current_sector)
+        except Exception:
+            pass
         
         # Reset travel state
         self.is_traveling = False

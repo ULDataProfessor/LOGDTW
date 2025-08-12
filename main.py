@@ -333,9 +333,26 @@ sectors - All sectors  sector - Current sector
                                     self.console.print(f"[green]You found: {names}. Use 'take <item>' to pick up.[/green]")
                                 elif event['type'] == 'npc':
                                     names = ', '.join(event['npcs'])
-                                    self.console.print(f"[cyan]You encounter: {names}. Use 'talk <npc>' to interact.[/cyan]")
+                                    self.console.print(f"[cyan]You encounter: {names}. Use 'talk <npc>' to interact. They may assist your mission.[/cyan]")
                                 elif event['type'] == 'resource':
                                     self.console.print(f"[yellow]Resource detected: {event['resource']}. Use 'gather' to collect.[/yellow]")
+
+                            # Update surface mission progress from tile events
+                            if hasattr(self, 'surface_mission') and self.surface_mission:
+                                try:
+                                    self.surface_mission = self.quest_system.update_surface_mission_with_events(
+                                        self.surface_mission,
+                                        self.world.planet_surface,
+                                        result['events']
+                                    )
+                                    if self.surface_mission.get('completed'):
+                                        rewards = self.surface_mission.get('rewards', {})
+                                        self.player.add_credits(rewards.get('credits', 0))
+                                        self.player.add_experience(rewards.get('experience', 0))
+                                        self.console.print("[bold green]Surface mission completed! Rewards granted.[/bold green]")
+                                        self.surface_mission = None
+                                except Exception:
+                                    pass
                     elif command.startswith('take '):
                         item_name = command[5:]
                         result = self.world.collect_surface_item(self.player, item_name)
@@ -347,6 +364,21 @@ sectors - All sectors  sector - Current sector
                     elif command.lower() in ['gather', 'collect']:
                         result = self.world.collect_surface_resource(self.player)
                         self.console.print(result['message'])
+                        if hasattr(self, 'surface_mission') and self.surface_mission:
+                            try:
+                                self.surface_mission = self.quest_system.update_surface_mission_with_events(
+                                    self.surface_mission,
+                                    self.world.planet_surface,
+                                    [{'type': 'resource', 'resource': self.world.get_surface_area().get('resource')}]
+                                )
+                                if self.surface_mission.get('completed'):
+                                    rewards = self.surface_mission.get('rewards', {})
+                                    self.player.add_credits(rewards.get('credits', 0))
+                                    self.player.add_experience(rewards.get('experience', 0))
+                                    self.console.print("[bold green]Surface mission completed! Rewards granted.[/bold green]")
+                                    self.surface_mission = None
+                            except Exception:
+                                pass
                     elif command.lower() == 'look':
                         self.display.show_planet_surface(self.world)
                     else:
@@ -412,6 +444,13 @@ sectors - All sectors  sector - Current sector
                 elif cmd_lower == 'land':
                     result = self.world.land_on_planet()
                     self.console.print(result['message'])
+                    if result.get('success'):
+                        try:
+                            self.surface_mission = self.quest_system.generate_surface_exploration_mission(self.world, self.player)
+                            if self.surface_mission:
+                                self.console.print("[bold cyan]Surface Mission:[/bold cyan] Explore tiles, collect a resource, defeat a threat, meet an NPC, then return to start.")
+                        except Exception:
+                            self.surface_mission = None
                 
                 elif cmd_lower.startswith('jump'):
                     self.handle_travel(command)

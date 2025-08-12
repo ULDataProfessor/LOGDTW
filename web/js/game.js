@@ -647,6 +647,17 @@ class UIManager {
         this.updateElement('planet-count', sectorInfo.planets || 0);
         this.updateElement('station-count', sectorInfo.stations || 0);
         
+        // Tooltip/narrative note for Sector 1 rare goods
+        try {
+            const noteEl = document.getElementById('sector-note');
+            if (noteEl) {
+                noteEl.innerHTML = '';
+                if (sectorInfo.sector === 1 || sectorInfo.name === 1) {
+                    noteEl.innerHTML = '<span title="Exclusive exports detected: Genesis Blueprint Fragment, Void Crystal, Ancient Data Shard, Prototype AI Core, Federation Seal (Rare). Watch market volatility for windfalls.">Rare goods available in Federation Core (Sector 1).</span>';
+                }
+            }
+        } catch (e) {}
+
         const dangerElement = document.getElementById('danger-level');
         if (dangerElement && sectorInfo.danger_level !== undefined) {
             const level = sectorInfo.danger_level;

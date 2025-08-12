@@ -342,6 +342,9 @@ class DynamicMarketSystem:
         # Chance to trigger new events
         if random.random() < self.event_probability:
             self._trigger_random_event()
+
+        # Timed rumor-driven rare-goods leak to Sectors 2 or 3
+        self._maybe_spawn_rare_goods_rumor_event()
         
         # Update sector economies
         for economy in self.sector_economies.values():
@@ -349,6 +352,58 @@ class DynamicMarketSystem:
         
         # Record historical data
         self._record_historical_data()
+
+    def _maybe_spawn_rare_goods_rumor_event(self):
+        """Occasionally make one of Sector 1's rare items briefly available in S2 or S3.
+
+        - Low probability each turn
+        - Duration is short (3-6 turns)
+        - Implemented as a transient supply bump in target sector
+        """
+        if random.random() > 0.02:  # ~2% chance per turn
+            return
+        target_sector = random.choice([2, 3])
+        rare_items = [
+            'Genesis Blueprint Fragment',
+            'Void Crystal',
+            'Ancient Data Shard',
+            'Prototype AI Core',
+            'Federation Seal (Rare)'
+        ]
+        # Ensure commodities exist (sector 1 init usually creates them)
+        for item in rare_items:
+            if item not in self.commodities:
+                self.commodities[item] = MarketData(
+                    base_price=20000,
+                    current_price=20000 * random.uniform(0.9, 1.2),
+                    supply=5,
+                    demand=50,
+                    volatility=1.0,
+                    trend=random.uniform(-0.05, 0.05),
+                    category=CommodityCategory.LUXURY,
+                    production_cost=15000,
+                )
+        leaked_item = random.choice(rare_items)
+        duration = random.randint(3, 6)
+        # Create a pseudo-event to track duration using EconomicEventData
+        ev = EconomicEventData(
+            event_type=EconomicEvent.DISCOVERY,
+            affected_commodities=[leaked_item],
+            price_modifiers={leaked_item: 0.85},
+            supply_modifiers={leaked_item: 3.0},
+            demand_modifiers={leaked_item: 1.2},
+            duration=duration,
+            description=f"Rumors spread of a clandestine shipment: {leaked_item} sighted in Sector {target_sector}",
+            start_turn=self.current_turn,
+            sector_id=target_sector,
+        )
+        # Apply temporary modifiers to the commodity as a hint; sector-specific pricing
+        self.active_events.append(ev)
+        # Optional: print/log narrative for CLI; web can surface via news
+        try:
+            print(f"📰 Rumor Event: {ev.description} (for {duration} turns)")
+        except Exception:
+            pass
     
     def _update_commodity_price(self, commodity_name: str, market_data: MarketData):
         """Update price for a single commodity"""
