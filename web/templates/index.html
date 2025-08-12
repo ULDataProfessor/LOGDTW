@@ -25,9 +25,14 @@
                     <span class="title-sub">Legend of the Green Dragon meets TW2002</span>
                 </h1>
                 <div class="header-actions">
+                    <span id="user-display" style="margin-right:8px;">Guest</span>
                     <button class="btn btn-secondary" id="install-btn" style="display:none">⬇ Install App</button>
+                    <button class="btn" onclick="showLoginModal()">🔐 Login</button>
+                    <button class="btn" onclick="showRegisterModal()">📝 Register</button>
+                    <button class="btn btn-primary" onclick="continueGame()">▶ Continue</button>
                     <button class="btn btn-primary" onclick="saveGame()">💾 Save</button>
                     <button class="btn btn-secondary" onclick="loadGame()">📁 Load</button>
+                    <button class="btn btn-warning" onclick="logoutUser()">🚪 Logout</button>
                     <button class="btn btn-info" onclick="showHelp()">❓ Help</button>
                     <div class="connection-status" id="connection-status">
                         <span class="status-indicator online" id="status-indicator"></span>

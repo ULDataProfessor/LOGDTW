@@ -833,6 +833,26 @@ class GameEngine {
         console.log('✅ Game initialized successfully');
     }
 
+    setUserDisplay(name) {
+        const el = document.getElementById('user-display');
+        if (el) el.textContent = name || 'Guest';
+    }
+
+    showAuthModal(title, fields, onSubmit) {
+        const inputs = fields.map(f => `<label style="display:block;margin:6px 0">${f.label}<br><input type="${f.type}" id="${f.id}" style="width:100%"></label>`).join('');
+        const modal = new Modal(title, `<form id="auth-form">${inputs}</form>`, `<button class="btn btn-primary" id="auth-submit">Submit</button>`);
+        modal.show();
+        setTimeout(()=>{
+            const btn = document.getElementById('auth-submit');
+            if (btn) btn.onclick = ()=>{
+                const data = {};
+                fields.forEach(f=>{ const el=document.getElementById(f.id); data[f.name]= el? el.value: ''; });
+                onSubmit(data);
+                closeModal();
+            };
+        }, 0);
+    }
+
     ensureSession() {
         this.token = localStorage.getItem('session_token');
         if (this.token) {
@@ -1015,7 +1035,7 @@ class GameEngine {
                 if (args[1]) {
                     this.saveGame(args[1]);
                 } else {
-                    this.saveGame();
+                this.saveGame();
                 }
                 break;
                 
@@ -1023,7 +1043,7 @@ class GameEngine {
                 if (args[1]) {
                     this.loadGame(args[1]);
                 } else {
-                    this.loadGame();
+                this.loadGame();
                 }
                 break;
                 
@@ -1657,7 +1677,7 @@ class GameEngine {
         } else {
             data = methodOrData || {};
         }
-
+        
         const options = {
             method,
             headers: { 'Content-Type': 'application/json' }
@@ -2281,3 +2301,59 @@ function showAchievements() {
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new GameEngine();
 });
+
+// Auth UI helpers
+function showLoginModal() {
+    if (!window.game) return;
+    window.game.showAuthModal('Login', [
+        {label:'Username', id:'login-username', name:'username', type:'text'},
+        {label:'Password', id:'login-password', name:'password', type:'password'}
+    ], (data)=>{
+        fetch('/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)})
+            .then(r=>r.json()).then(res=>{
+                if (res.success) {
+                    window.game.setUserDisplay(data.username);
+                    window.game.ui.showNotification('Logged in', 'success');
+                    window.game.loadGameState();
+                } else {
+                    window.game.ui.showNotification(res.message || 'Login failed', 'error');
+                }
+            }).catch(()=> window.game.ui.showNotification('Login error', 'error'));
+    });
+}
+
+function showRegisterModal() {
+    if (!window.game) return;
+    window.game.showAuthModal('Register', [
+        {label:'Username', id:'reg-username', name:'username', type:'text'},
+        {label:'Email (optional)', id:'reg-email', name:'email', type:'email'},
+        {label:'Password', id:'reg-password', name:'password', type:'password'}
+    ], (data)=>{
+        fetch('/api/auth/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)})
+            .then(r=>r.json()).then(res=>{
+                if (res.success) {
+                    window.game.setUserDisplay(data.username);
+                    window.game.ui.showNotification('Registered and linked to session', 'success');
+                    window.game.loadGameState();
+                } else {
+                    window.game.ui.showNotification(res.message || 'Register failed', 'error');
+                }
+            }).catch(()=> window.game.ui.showNotification('Register error', 'error'));
+    });
+}
+
+function logoutUser() {
+    fetch('/api/auth/logout', {method:'POST'})
+        .then(r=>r.json()).then(()=>{
+            if (window.game) {
+                window.game.setUserDisplay('Guest');
+                window.game.ui.showNotification('Logged out', 'info');
+            }
+        });
+}
+
+function continueGame() {
+    if (window.game) {
+        window.game.loadGameState();
+    }
+}
