@@ -449,6 +449,50 @@ class UIManager {
         
         // Initialize with loading state
         this.showLoadingState();
+
+        // Inject toast container and settings modal if not present
+        if (!document.getElementById('toast-container')) {
+            const c = document.createElement('div');
+            c.id = 'toast-container';
+            c.style.cssText = 'position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;';
+            document.body.appendChild(c);
+        }
+        if (!document.getElementById('settings-modal')) {
+            const m = document.createElement('div');
+            m.id = 'settings-modal';
+            m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9998;align-items:center;justify-content:center;';
+            m.innerHTML = `
+              <div style="background:var(--panel-bg);border:2px solid var(--border-color);border-radius:12px;padding:16px;max-width:420px;width:90%">
+                <h3 style="margin-bottom:12px;color:var(--accent-text)">Settings</h3>
+                <label style="display:flex;align-items:center;gap:8px;margin:8px 0">
+                  <input type="checkbox" id="setting-compact" /> Compact UI
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;margin:8px 0">
+                  <input type="checkbox" id="setting-toasts" checked /> Enable Toasts
+                </label>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+                  <button id="settings-close" class="btn btn-secondary">Close</button>
+                </div>
+              </div>`;
+            document.body.appendChild(m);
+            m.addEventListener('click', (e)=>{ if(e.target===m) m.style.display='none';});
+            m.querySelector('#settings-close').addEventListener('click', ()=> m.style.display='none');
+            try {
+              const compact = localStorage.getItem('setting-compact') === '1';
+              const toasts = localStorage.getItem('setting-toasts') !== '0';
+              m.querySelector('#setting-compact').checked = compact;
+              m.querySelector('#setting-toasts').checked = toasts;
+              document.body.dataset.compact = compact ? '1' : '0';
+              m.querySelector('#setting-compact').addEventListener('change', (ev)=>{
+                const val = ev.target.checked ? '1' : '0';
+                localStorage.setItem('setting-compact', val);
+                document.body.dataset.compact = val;
+              });
+              m.querySelector('#setting-toasts').addEventListener('change', (ev)=>{
+                localStorage.setItem('setting-toasts', ev.target.checked ? '1':'0');
+              });
+            } catch(_){}
+        }
     }
     
     showLoadingState() {
@@ -654,31 +698,14 @@ class UIManager {
     }
     
     showNotification(message, type = 'info') {
-        // Create floating notification
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.style.cssText = `
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            background: var(--panel-bg);
-            border: 2px solid var(--accent-text);
-            border-radius: var(--border-radius);
-            padding: var(--spacing-md);
-            z-index: 9999;
-            max-width: 300px;
-            animation: slideIn 0.3s ease;
-        `;
-        notification.textContent = message;
-        
-        document.body.appendChild(notification);
-        
-        // Remove after 3 seconds
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
-            }
-        }, 3000);
+        try { if (localStorage.getItem('setting-toasts') === '0') return; } catch(_){}
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const n = document.createElement('div');
+        n.style.cssText = 'background:var(--panel-bg);border:2px solid var(--accent-text);color:var(--primary-text);padding:8px 12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
+        n.textContent = message;
+        container.appendChild(n);
+        setTimeout(()=>{ if(n.parentNode) n.parentNode.removeChild(n); }, 3000);
     }
     
     formatNumber(num) {

@@ -80,7 +80,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 # Import models after app configuration
 from models import (
     db, init_database, get_or_create_player, cleanup_old_sessions, get_database_stats,
-    Player, InventoryItem, SectorVisibility, EventHistory, MarketData, PlayerMission, GameSettings
+    User, Player, InventoryItem, SectorVisibility, EventHistory, MarketData, PlayerMission, GameSettings
 )
 
 # Initialize database
@@ -108,6 +108,12 @@ def get_game_systems():
         game_systems['mission_manager'] = MissionManager()
         game_systems['skill_tree'] = SkillTree()
         game_systems['enhanced_combat'] = EnhancedCombatSystem()
+        # Additional systems
+        game_systems['stock_market'] = StockMarket()
+        game_systems['counselor'] = AICounselor()
+        game_systems['npc_manager'] = NPCManager() if 'NPCManager' in globals() else None
+        game_systems['crew_manager'] = CrewManager() if 'CrewManager' in globals() else None
+        game_systems['diplomacy'] = DiplomacySystem() if 'DiplomacySystem' in globals() else None
     
     return game_systems
 
@@ -121,6 +127,47 @@ def get_current_player() -> Player:
     """Get the current player from database"""
     session_id = get_session_id()
     return get_or_create_player(session_id)
+
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    data = request.get_json() or {}
+    username = str(data.get('username', '')).strip()
+    password = str(data.get('password', ''))
+    email = str(data.get('email', '')).strip() or None
+    if not username or not password:
+        return jsonify(success=False, message='Username and password required'), 400
+    if User.query.filter((User.username==username) | (User.email==email)).first():
+        return jsonify(success=False, message='User already exists'), 400
+    user = User(username=username, email=email)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    # Link current session player to this user
+    player = get_current_player()
+    player.user_id = user.id
+    db.session.commit()
+    return jsonify(success=True, user_id=user.id)
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    data = request.get_json() or {}
+    username = str(data.get('username', '')).strip()
+    password = str(data.get('password', ''))
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return jsonify(success=False, message='Invalid credentials'), 401
+    user.last_login = datetime.utcnow()
+    db.session.commit()
+    # Attach current session player to the user (merge progress)
+    player = get_current_player()
+    player.user_id = user.id
+    db.session.commit()
+    return jsonify(success=True, user_id=user.id)
+
+@app.route('/api/auth/logout', methods=['POST'])
+def auth_logout():
+    session.clear()
+    return jsonify(success=True)
 
 def get_game_data() -> dict:
     """Get current game data formatted for legacy API compatibility"""
@@ -202,7 +249,7 @@ def update_fog_of_war(player: Player, new_sector: int = None):
     
     db.session.commit()
 
-def check_random_events(player: Player, context: EventContext) -> dict:
+def check_random_events(player: Player, context: 'EventContext') -> dict:
     """Check for random events and handle them"""
     if not GAME_MODULES_AVAILABLE:
         return None
@@ -286,6 +333,100 @@ def game():
 
 # ============================================================================
 # API Routes
+@app.route('/api/stocks', methods=['GET', 'POST'])
+def api_stocks():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Stock market not available'), 501
+    systems = get_game_systems()
+    market = systems.get('stock_market')
+    player = get_current_player()
+    if request.method == 'GET':
+        # Update prices if needed
+        market.update_market()
+        stocks = [s.__dict__ for s in market.get_all_stocks()]
+        portfolio = market.get_portfolio_summary()
+        return jsonify(success=True, stocks=stocks, portfolio=portfolio)
+    else:
+        data = request.get_json() or {}
+        action = str(data.get('action', '')).lower()
+        symbol = data.get('symbol')
+        shares = int(data.get('shares', 0))
+        if action == 'buy':
+            res = market.buy_stock(player, symbol, shares)
+        elif action == 'sell':
+            res = market.sell_stock(player, symbol, shares)
+        else:
+            return jsonify(success=False, message='Invalid action'), 400
+        db.session.commit()
+        return jsonify(res)
+
+@app.route('/api/counselor/tip', methods=['GET'])
+def api_counselor_tip():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Counselor not available'), 501
+    systems = get_game_systems()
+    counselor = systems.get('counselor')
+    player = get_current_player()
+    tip = counselor.get_tip({
+        'level': player.level,
+        'credits': player.credits,
+        'sector': player.current_sector,
+    }) if counselor else 'Counselor unavailable'
+    return jsonify(success=True, tip=tip)
+
+@app.route('/api/npc/list', methods=['GET'])
+def api_npc_list():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='NPC system not available'), 501
+    systems = get_game_systems()
+    npc_manager = systems.get('npc_manager')
+    if not npc_manager:
+        return jsonify(success=False, message='NPC system not initialized'), 501
+    # For web, list a few generic contacts
+    contacts = npc_manager.get_contacts() if hasattr(npc_manager, 'get_contacts') else []
+    return jsonify(success=True, npcs=contacts)
+
+@app.route('/api/npc/talk', methods=['POST'])
+def api_npc_talk():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='NPC system not available'), 501
+    systems = get_game_systems()
+    npc_manager = systems.get('npc_manager')
+    data = request.get_json() or {}
+    target = data.get('name')
+    if npc_manager and hasattr(npc_manager, 'talk'):
+        reply = npc_manager.talk(target)
+    else:
+        reply = f"{target} acknowledges your hail."
+    return jsonify(success=True, reply=reply)
+
+@app.route('/api/crew', methods=['GET'])
+def api_crew():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Crew system not available'), 501
+    systems = get_game_systems()
+    crew_manager = systems.get('crew_manager')
+    crew = crew_manager.list_crew() if crew_manager and hasattr(crew_manager, 'list_crew') else []
+    return jsonify(success=True, crew=crew)
+
+@app.route('/api/diplomacy', methods=['GET'])
+def api_diplomacy():
+    if not GAME_MODULES_AVAILABLE:
+        return jsonify(success=False, message='Diplomacy not available'), 501
+    systems = get_game_systems()
+    diplomacy = systems.get('diplomacy')
+    status = diplomacy.get_status() if diplomacy and hasattr(diplomacy, 'get_status') else {}
+    return jsonify(success=True, diplomacy=status)
+
+@app.route('/api/session', methods=['POST'])
+def create_session():
+    """Establish a session for the web client and return a token."""
+    sid = get_session_id()
+    try:
+        cleanup_old_sessions(hours=24)
+    except Exception:
+        pass
+    return jsonify(success=True, token=sid)
 # ============================================================================
 
 @app.route('/api/status', methods=['GET'])

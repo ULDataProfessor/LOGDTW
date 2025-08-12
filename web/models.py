@@ -15,12 +15,31 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
+class User(db.Model):
+    """Application user for web and CLI shared login"""
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False)
+    email = Column(String(120), unique=True)
+    password_hash = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime)
+
+    players = relationship('Player', back_populates='user', cascade='all, delete-orphan')
+
+    def set_password(self, raw_password: str):
+        self.password_hash = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        return check_password_hash(self.password_hash, raw_password)
+
 class Player(db.Model):
     """Player character model"""
     __tablename__ = 'players'
     
     id = Column(Integer, primary_key=True)
     session_id = Column(String(255), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
     name = Column(String(100), nullable=False, default='Captain')
     ship_name = Column(String(100), nullable=False, default='Starfarer')
     
@@ -56,6 +75,9 @@ class Player(db.Model):
     sector_visibility = relationship('SectorVisibility', back_populates='player', cascade='all, delete-orphan')
     event_history = relationship('EventHistory', back_populates='player', cascade='all, delete-orphan')
     missions = relationship('PlayerMission', back_populates='player', cascade='all, delete-orphan')
+
+    # Relationship to User
+    user = relationship('User', back_populates='players')
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -449,6 +471,15 @@ def init_database(app):
     with app.app_context():
         # Create all tables
         db.create_all()
+
+        # Ensure user_id column exists on players for existing DBs
+        try:
+            info = db.engine.execute("PRAGMA table_info(players)").fetchall()
+            cols = {row[1] for row in info}
+            if 'user_id' not in cols:
+                db.engine.execute("ALTER TABLE players ADD COLUMN user_id INTEGER REFERENCES users(id)")
+        except Exception as e:
+            print(f"Warning: could not ensure user_id column: {e}")
         
         # Initialize default settings
         default_settings = [
