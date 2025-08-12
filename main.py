@@ -36,6 +36,7 @@ from game.sos_system import SOSSystem
 from game.skills import Skill
 from game.ai_counselor import ShipCounselor
 from game.ship_customization import ShipCustomization
+from game.empire import EmpireSystem
 from utils.display import DisplayManager
 from utils.input_handler import InputHandler
 from game.save_system import SaveGameSystem
@@ -64,6 +65,7 @@ class Game:
         self.achievements = AchievementSystem()
         self.running = False
         self.save_system = SaveGameSystem()
+        self.empire = EmpireSystem()
 
     def clear_screen(self):
         """Clear the console screen"""
@@ -420,6 +422,42 @@ sectors - All sectors  sector - Current sector
                 elif cmd_lower == 'sectors':
                     self.show_sectors()
                 
+                elif cmd_lower.startswith('capture'):
+                    result = self.empire.capture_current_planet(self.player, self.world)
+                    self.console.print(result['message'])
+
+                elif cmd_lower.startswith('policy'):
+                    try:
+                        parts = command.split()[1:]
+                        kwargs = {}
+                        for part in parts:
+                            if '=' in part:
+                                k, v = part.split('=', 1)
+                                kwargs[k] = int(v)
+                        loc = self.world.get_current_location()
+                        res = self.empire.set_policy(loc.name, self.world.current_sector, **kwargs)
+                        self.console.print(res['message'])
+                    except Exception:
+                        self.console.print("[yellow]Usage: policy agriculture=30 industry=30 defense=20 research=20 tax=10[/yellow]")
+
+                elif cmd_lower.startswith('raise soldiers'):
+                    try:
+                        amount = int(command.split()[-1])
+                        loc = self.world.get_current_location()
+                        res = self.empire.raise_soldiers(loc.name, self.world.current_sector, amount, self.player)
+                        self.console.print(res['message'])
+                    except Exception:
+                        self.console.print("[yellow]Usage: raise soldiers <amount>[/yellow]")
+
+                elif cmd_lower == 'empire':
+                    status = self.empire.status()
+                    if not status:
+                        self.console.print("[dim]No owned planets.[/dim]")
+                    else:
+                        self.console.print("[bold cyan]Empire Status[/bold cyan]")
+                        for p in status:
+                            self.console.print(f"- {p['name']} (Sector {p['sector']}) pop={p['population']} morale={p['morale']} garrison={p['garrison']} policies={p['policies']}")
+
                 elif cmd_lower == 'sector':
                     self.show_current_sector()
                 
