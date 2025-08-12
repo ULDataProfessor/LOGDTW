@@ -811,7 +811,11 @@ def get_galaxy():
                 'planets': len(sector_data.planets),
                 'stations': len(sector_data.stations),
                 'events': len(sector_data.events),
-                'resources': list(sector_data.resources.keys())
+                'resources': list(sector_data.resources.keys()),
+                'narrative': {
+                    'summary': getattr(sector_data, 'narrative_summary', None),
+                    'hooks': getattr(sector_data, 'narrative_hooks', None)
+                }
             }
     
     return jsonify(success=True, galaxy=galaxy_map)
@@ -884,7 +888,11 @@ def get_sector_details(sector_id):
             'stellar_objects': sector_data.stellar_objects,
             'warp_gates': sector_data.warp_gates,
             'resources': sector_data.resources,
-            'discovery_date': sector_data.discovery_date
+            'discovery_date': sector_data.discovery_date,
+            'narrative': {
+                'summary': getattr(sector_data, 'narrative_summary', None),
+                'hooks': getattr(sector_data, 'narrative_hooks', None)
+            }
         }
         
         return jsonify(success=True, sector=sector_details)

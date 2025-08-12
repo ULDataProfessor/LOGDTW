@@ -456,6 +456,84 @@ class QuestSystem:
             rewards={'experience': 125 + player_level * 25, 'credits': 300 + player_level * 40},
             difficulty=player_level + 1
         )
+
+    # --- Planetary surface exploration mission helpers ---
+    def generate_surface_exploration_mission(self, world, player) -> Dict[str, Any]:
+        """Create a randomized planet-surface exploration mission with NPC help hooks."""
+        surface = getattr(world, 'planet_surface', None)
+        if not surface:
+            return {}
+
+        width, height = surface.width, surface.height
+        total_tiles = width * height
+        explore_goal = max(5, min(10, total_tiles // 3))
+
+        mission = {
+            'id': f'surface_explore_{world.current_location}_{player.level}',
+            'title': f"Explore {surface.name}",
+            'steps': [
+                {'type': 'explore', 'target': explore_goal, 'progress': 0, 'done': False},
+                {'type': 'collect', 'resource': None, 'done': False},
+                {'type': 'defeat', 'enemy': None, 'done': False},
+                {'type': 'npc', 'name': None, 'done': False},
+                {'type': 'return', 'to': surface.player_pos, 'done': False},
+            ],
+            'rewards': {
+                'credits': 300 + player.level * 50,
+                'experience': 150 + player.level * 25,
+                'items': []
+            },
+            'active': True,
+            'started_at': surface.player_pos,
+        }
+        return mission
+
+    def update_surface_mission_with_events(self, mission: Dict[str, Any], surface, events: List[Dict]) -> Dict[str, Any]:
+        """Advance mission steps based on surface tile events."""
+        if not mission or not mission.get('active'):
+            return mission
+
+        # Explore progress on each move
+        for step in mission['steps']:
+            if step['type'] == 'explore' and not step['done']:
+                step['progress'] = min(step['target'], step.get('progress', 0) + 1)
+                if step['progress'] >= step['target']:
+                    step['done'] = True
+                break
+
+        for ev in events:
+            if ev['type'] == 'resource':
+                for step in mission['steps']:
+                    if step['type'] == 'collect' and not step['done']:
+                        step['resource'] = ev['resource']
+                        step['done'] = True
+                        break
+            elif ev['type'] == 'combat':
+                for step in mission['steps']:
+                    if step['type'] == 'defeat' and not step['done']:
+                        step['enemy'] = ev.get('enemy_type') or 'hostile'
+                        step['done'] = True
+                        break
+            elif ev['type'] == 'npc':
+                npcs = ev.get('npcs') or []
+                if npcs:
+                    for step in mission['steps']:
+                        if step['type'] == 'npc' and not step['done']:
+                            step['name'] = npcs[0]
+                            step['done'] = True
+                            break
+
+        # Check return condition
+        for step in mission['steps']:
+            if step['type'] == 'return' and not step['done']:
+                if surface.player_pos == mission['started_at']:
+                    step['done'] = True
+
+        # Completion
+        if all(s.get('done') for s in mission['steps']):
+            mission['active'] = False
+            mission['completed'] = True
+        return mission
     
     def _generate_mining_quest(self, location: str, player_level: int) -> Quest:
         """Generate a mining quest"""

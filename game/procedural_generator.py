@@ -65,6 +65,9 @@ class ProceduralSector:
     warp_gates: List[int]
     resources: Dict[str, int]
     discovery_date: Optional[str]
+    # New narrative fields
+    narrative_summary: Optional[str] = None
+    narrative_hooks: Optional[List[str]] = None
 
 @dataclass
 class ProceduralEvent:
@@ -174,6 +177,11 @@ class ProceduralGenerator:
         # Reset random seed
         random.seed(self.seed)
         
+        # Build narrative
+        narrative_summary, narrative_hooks = self._generate_sector_narrative(
+            name, faction, danger_level, planets, stations, events, stellar_objects
+        )
+
         return ProceduralSector(
             id=sector_id,
             name=name,
@@ -187,8 +195,48 @@ class ProceduralGenerator:
             stellar_objects=stellar_objects,
             warp_gates=warp_gates,
             resources=resources,
-            discovery_date=None
+            discovery_date=None,
+            narrative_summary=narrative_summary,
+            narrative_hooks=narrative_hooks
         )
+
+    def _generate_sector_narrative(self, name: str, faction: str, danger: int,
+                                   planets: List['ProceduralPlanet'], stations: List[Dict],
+                                   events: List[Dict], stellar: List[str]) -> Tuple[str, List[str]]:
+        """Create a short narrative and hooks for a sector based on its content."""
+        hooks: List[str] = []
+        descriptors = []
+        if danger >= 4:
+            descriptors.append("perilous")
+        if 'nebula' in [e.get('type') for e in events]:
+            descriptors.append("shrouded by ionized mists")
+        if any('Wormhole' in s for s in stellar):
+            descriptors.append("warped by unstable wormholes")
+        if planets:
+            populous = sum(1 for p in planets if p.population > 1000000)
+            if populous:
+                descriptors.append("densely settled")
+        if stations:
+            descriptors.append("anchored by orbital stations")
+
+        if not descriptors:
+            descriptors.append("quiet")
+
+        summary = f"{name} is a {', '.join(descriptors)} sector under {faction} influence."
+
+        # Hooks derived from content
+        if danger >= 4:
+            hooks.append("Patrols report increasing pirate activity.")
+        if any(e.get('type') == 'ancient_artifact' for e in events):
+            hooks.append("Scans hint at relics from a forgotten civilization.")
+        if any('Wormhole' in s for s in stellar):
+            hooks.append("Charts mark erratic gravitational lensing—navigation advised.")
+        if planets and any(p.biome.name == 'CRYSTAL' for p in planets):
+            hooks.append("Crystal biomes emit harmonic frequencies—scientists are intrigued.")
+        if stations and len(stations) > 1:
+            hooks.append("Rival station syndicates vie for commercial dominance.")
+
+        return summary, hooks
     
     def _calculate_sector_coordinates(self, sector_id: int) -> Tuple[int, int]:
         """Calculate sector coordinates in a spiral pattern"""

@@ -261,6 +261,33 @@ class DynamicMarketSystem:
         )
         
         self.sector_economies[sector_id] = economy
+
+        # Inject sector-1-only special items
+        if sector_id == 1:
+            special_items = {
+                'Genesis Blueprint Fragment': {"base_price": 25000, "volatility": 0.9, "category": CommodityCategory.TECHNOLOGY, "cost": 18000},
+                'Void Crystal': {"base_price": 18000, "volatility": 0.8, "category": CommodityCategory.LUXURY, "cost": 14000},
+                'Ancient Data Shard': {"base_price": 22000, "volatility": 0.85, "category": CommodityCategory.TECHNOLOGY, "cost": 17000},
+                'Prototype AI Core': {"base_price": 30000, "volatility": 1.0, "category": CommodityCategory.TECHNOLOGY, "cost": 24000},
+                'Federation Seal (Rare)': {"base_price": 12000, "volatility": 0.6, "category": CommodityCategory.LUXURY, "cost": 9000}
+            }
+            for name, data in special_items.items():
+                if name not in self.commodities:
+                    self.commodities[name] = MarketData(
+                        base_price=data["base_price"],
+                        current_price=data["base_price"] * random.uniform(0.9, 1.2),
+                        supply=random.randint(5, 25),
+                        demand=random.randint(20, 80),
+                        volatility=data["volatility"],
+                        trend=random.uniform(-0.05, 0.05),
+                        category=data["category"],
+                        production_cost=data["cost"]
+                    )
+                    self.historical_prices[name] = [self.commodities[name].current_price]
+                    self.trade_volumes[name] = []
+            # Mark these as sector 1 exports so they're available in that market
+            economy.exports.extend([k for k in special_items.keys() if k not in economy.exports])
+
         return economy
     
     def _determine_trade_goods(self, specializations: List[str]) -> Tuple[List[str], List[str]]:
