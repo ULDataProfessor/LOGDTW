@@ -113,8 +113,12 @@ class Skill:
         """Check if prerequisites are met"""
         if not prerequisites:
             return True
-        # This would check other skills/conditions - simplified for now
-        return True
+        
+        # For now, this checks if other skills exist in the skill tree
+        # In a full implementation, this would check actual player skill levels
+        # TODO: This needs access to player skills to check actual levels
+        # For now, we'll assume basic prerequisites are met after level 5
+        return self.level >= 5
 
     def get_progress_percentage(self) -> float:
         """Get progress percentage to next level"""
@@ -277,6 +281,35 @@ class SkillTree:
     def get_skill(self, name: str) -> Optional[Skill]:
         """Get a skill by name"""
         return self.skills.get(name)
+
+    def check_skill_prerequisites(
+        self, skill_name: str, player_skills: Dict[str, int]
+    ) -> bool:
+        """Check if player meets prerequisites for a skill's next unlock"""
+        skill = self.get_skill(skill_name)
+        if not skill:
+            return False
+
+        # Check if player has any unlocks available at current level
+        if skill_name in SKILL_UNLOCKS:
+            unlocks = SKILL_UNLOCKS[skill_name]
+            current_level = player_skills.get(skill_name, 1)
+            
+            for unlock in unlocks:
+                if unlock.level_required <= current_level:
+                    # Check if prerequisites for this unlock are met
+                    if unlock.prerequisites:
+                        for prereq in unlock.prerequisites:
+                            if ':' in prereq:
+                                # Format: "skill_name:level"
+                                req_skill, req_level = prereq.split(':')
+                                if player_skills.get(req_skill, 0) < int(req_level):
+                                    return False
+                            else:
+                                # Simple skill requirement - check if player has it
+                                if prereq not in player_skills or player_skills[prereq] < 1:
+                                    return False
+        return True
 
     def get_skills_by_category(self, category: SkillCategory) -> List[Skill]:
         """Get all skills in a category"""

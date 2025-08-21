@@ -34,7 +34,7 @@ try:
 
     # Missions and quests
     from game.enhanced_missions import MissionManager
-    from game.quests import QuestManager
+    from game.quests import QuestSystem
 
     # Procedural content
     from game.procedural_generator import ProceduralGenerator
@@ -44,18 +44,18 @@ try:
     # Character progression
     from game.skills import SkillTree
     from game.achievements import AchievementSystem
-    from game.crew import CrewManager
+    from game.crew import Crew
 
     # Game mechanics
     from game.fog_of_war import FogOfWarSystem
-    from game.random_events import RandomEventSystem, EventContext
+    from game.random_events import EventContext  # Only import what exists
     from game.ship_customization import ShipCustomization
-    from game.crafting import CraftingSystem
-    from game.diplomacy import DiplomacySystem
-    from game.npcs import NPCManager
-    from game.story_content import StoryManager
+    from game.crafting import craft_item, RECIPES  # Import functions instead of non-existent class
+    from game.diplomacy import Diplomacy  # Correct class name
+    from game.npcs import NPCSystem  # Correct class name
+    from game.story_content import FactionStoryline  # Correct class name
     from game.holodeck import HolodeckSystem
-    from game.ai_counselor import AICounselor
+    from game.ai_counselor import CounselorResponse  # Correct class name
     from game.sos_system import SOSSystem
 
     GAME_MODULES_AVAILABLE = True
@@ -78,7 +78,7 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 
 # Import models after app configuration
-from models import (
+from web.models import (
     db,
     init_database,
     get_or_create_player,
@@ -878,35 +878,47 @@ def save_game():
     if not GAME_MODULES_AVAILABLE:
         return jsonify(success=False, message="Save system not available")
 
-    json_data = request.get_json() or {}
-    save_name = json_data.get("save_name", "web_save")
+    try:
+        json_data = request.get_json() or {}
+        save_name = json_data.get("save_name", "web_save")
 
-    player = get_current_player()
-    data = get_game_data()
-    systems = get_game_systems()
-    save_system = systems["save_system"]
+        # Validate save name
+        if not save_name or not isinstance(save_name, str):
+            return jsonify(success=False, message="Invalid save name"), 400
 
-    # Create a GameState object
-    game_state = GameState(
-        player_data=player.to_dict(),
-        world_data=data["world"],
-        mission_data=data["missions"],
-        npc_data={},
-        trading_data={},
-        skill_data=player.skills,
-        combat_data={},
-        settings={},
-        statistics={"play_time": player.turn_counter * 60},
-        achievements=[],
-        timestamp=time.time(),
-    )
+        player = get_current_player()
+        if not player:
+            return jsonify(success=False, message="No active player session"), 401
 
-    save_id = save_system.save_game(game_state, save_name, "Web save")
+        data = get_game_data()
+        systems = get_game_systems()
+        save_system = systems["save_system"]
 
-    if save_id:
-        return jsonify(success=True, message=f"Game saved as {save_id}")
-    else:
-        return jsonify(success=False, message="Failed to save game")
+        # Create a GameState object
+        game_state = GameState(
+            player_data=player.to_dict(),
+            world_data=data["world"],
+            mission_data=data["missions"],
+            npc_data={},
+            trading_data={},
+            skill_data=player.skills,
+            combat_data={},
+            settings={},
+            statistics={"play_time": player.turn_counter * 60},
+            achievements=[],
+            timestamp=time.time(),
+        )
+
+        save_id = save_system.save_game(game_state, save_name, "Web save")
+
+        if save_id:
+            return jsonify(success=True, message=f"Game saved as {save_id}")
+        else:
+            return jsonify(success=False, message="Failed to save game")
+
+    except Exception as e:
+        app.logger.error(f"Error saving game: {str(e)}")
+        return jsonify(success=False, message="Internal server error"), 500
 
 
 @app.route("/api/load", methods=["POST"])
@@ -1261,11 +1273,12 @@ def debug_info():
 if __name__ == "__main__":
     import time
     import random
-
-    # Set development mode
-    app.config["DEBUG"] = True
-    app.config["TEMPLATES_AUTO_RELOAD"] = True
-
+    
+    # Use proper configuration
+    config_name = os.environ.get('FLASK_ENV', 'development')
+    from web.config import config
+    app.config.from_object(config.get(config_name, config['default']))
+    
     # Create templates directory if it doesn't exist
     templates_dir = os.path.join(os.path.dirname(__file__), "templates")
     if not os.path.exists(templates_dir):
@@ -1273,6 +1286,8 @@ if __name__ == "__main__":
 
     print("🚀 Starting LOGDTW2002 Flask Web Server")
     print("=" * 40)
+    print(f"Environment: {config_name}")
+    print(f"Debug mode: {app.config.get('DEBUG', False)}")
     print(f"Game modules available: {GAME_MODULES_AVAILABLE}")
     print("Web interface: http://localhost:5002")
     print("API endpoints: http://localhost:5002/api/")

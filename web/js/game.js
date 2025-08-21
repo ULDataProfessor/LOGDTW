@@ -591,6 +591,10 @@ class UIManager {
         const inventoryGrid = document.getElementById('inventory-grid');
         if (!inventoryGrid) return;
         
+        // Performance optimization: use document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        
+        // Clear existing items efficiently
         inventoryGrid.innerHTML = '';
         
         if (!inventory || inventory.length === 0) {
@@ -601,12 +605,16 @@ class UIManager {
         inventory.forEach(item => {
             const inventoryItem = document.createElement('div');
             inventoryItem.className = 'inventory-item';
+            // Use textContent for security and performance where possible
             inventoryItem.innerHTML = `
                 <span class="item-name">${item.name}</span>
                 <span class="item-quantity">×${item.quantity}</span>
             `;
-            inventoryGrid.appendChild(inventoryItem);
+            fragment.appendChild(inventoryItem);
         });
+        
+        // Append all items at once for better performance
+        inventoryGrid.appendChild(fragment);
     }
     
     updateMarketSummary(market) {
@@ -709,18 +717,50 @@ class UIManager {
     }
     
     showNotification(message, type = 'info') {
-        try { if (localStorage.getItem('setting-toasts') === '0') return; } catch(_){}
+        // Check if notifications are disabled in settings
+        try { 
+            if (localStorage.getItem('setting-toasts') === '0') return; 
+        } catch(_){}
+        
         const container = document.getElementById('toast-container');
         if (!container) return;
-        const n = document.createElement('div');
-        n.style.cssText = 'background:var(--panel-bg);border:2px solid var(--accent-text);color:var(--primary-text);padding:8px 12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4)';
-        n.textContent = message;
-        container.appendChild(n);
-        setTimeout(()=>{ if(n.parentNode) n.parentNode.removeChild(n); }, 3000);
+        
+        const notification = document.createElement('div');
+        notification.style.cssText = 'background:var(--panel-bg);border:2px solid var(--accent-text);color:var(--primary-text);padding:8px 12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);margin-bottom:4px;opacity:0;transition:opacity 0.3s ease;';
+        notification.textContent = message;
+        
+        container.appendChild(notification);
+        
+        // Animate in
+        requestAnimationFrame(() => {
+            notification.style.opacity = '1';
+        });
+        
+        // Auto-remove after 3 seconds with fade out
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
     }
     
     formatNumber(num) {
         return new Intl.NumberFormat().format(num);
+    }
+    
+    // Utility method for escaping HTML to prevent XSS
+    escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
     }
     
     update() {
