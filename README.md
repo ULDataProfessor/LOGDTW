@@ -4,13 +4,25 @@ A text-based adventure game that combines the RPG elements of Legend of the Gree
 
 ## Features
 
-- **Character Progression**: Level up, gain experience, and improve your skills
+- **Character Progression**: Level up, gain experience, and improve your skills with enhanced prerequisites system
 - **Combat System**: Turn-based combat with various weapons and abilities
 - **Space Exploration**: Navigate through different sectors and planets
 - **Resource Management**: Manage credits, fuel, and supplies
-- **Trading System**: Buy and sell goods between planets
+- **Trading System**: Buy and sell goods between planets with dynamic markets
 - **Quest System**: Complete missions and earn rewards
+- **Web Interface**: Modern web-based interface with optimized performance
 - **ASCII Art**: Beautiful text-based graphics and animations
+
+## Recent Improvements
+
+✅ **Fixed Critical Import Issues**: Web application now starts reliably  
+✅ **Enhanced Skill System**: Proper prerequisites checking for skill unlocks  
+✅ **Performance Optimizations**: Faster web UI with smooth animations  
+✅ **Better Error Handling**: Robust API endpoints with proper validation  
+✅ **Security Enhancements**: Input validation and XSS prevention  
+✅ **Configuration Management**: Environment-aware settings for dev/production  
+
+See [IMPROVEMENTS.md](docs/IMPROVEMENTS.md) for detailed technical information.
 
 ## Installation
 
@@ -21,7 +33,12 @@ A text-based adventure game that combines the RPG elements of Legend of the Gree
    ```
 3. Run the game:
    ```bash
+   # Console version
    python main.py
+   
+   # Web interface
+   cd web && python app.py
+   # Then visit http://localhost:5002
    ```
 
 ## Game Controls
