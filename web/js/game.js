@@ -440,9 +440,11 @@ class UIManager {
     constructor() {
         this.lastUpdate = 0;
         this.connectionStatus = 'online';
+        this.dbStatus = 'unknown'; // Database connection status
         this.cachedElements = {}; // Cache frequently accessed DOM elements
         this.updateQueue = []; // Queue for batched updates
         this.updatePending = false; // Flag to prevent multiple simultaneous updates
+        this.dbStatusCheckInterval = null; // Database status polling interval
         this.init();
     }
     
@@ -482,6 +484,7 @@ class UIManager {
     init() {
         // Update connection status indicator
         this.updateConnectionStatus(true);
+        this.startDatabaseStatusMonitoring();
         
         // Initialize with loading state
         this.showLoadingState();
@@ -807,15 +810,97 @@ class UIManager {
     }
     
     updateConnectionStatus(connected) {
-        const indicator = document.getElementById('status-indicator');
-        const text = document.getElementById('status-text');
+        // Update Service Worker / Network status
+        const swIndicator = document.getElementById('sw-status-indicator');
+        const swText = document.getElementById('sw-status-text');
         
-        if (indicator && text) {
-            indicator.className = connected ? 'status-indicator online' : 'status-indicator offline';
-            text.textContent = connected ? 'Connected' : 'Disconnected';
+        if (swIndicator && swText) {
+            swIndicator.className = connected ? 'status-indicator online' : 'status-indicator offline';
+            swText.textContent = connected ? 'Online' : 'Offline';
         }
         
         this.connectionStatus = connected ? 'online' : 'offline';
+    }
+    
+    updateDatabaseStatus(status) {
+        // Update Database connection status
+        const dbIndicator = document.getElementById('db-status-indicator');
+        const dbText = document.getElementById('db-status-text');
+        
+        if (!dbIndicator || !dbText) return;
+        
+        const isConnected = status.primary_connected === true;
+        const isLocalMode = status.local_mode === true;
+        const pendingSync = status.sync_queue?.pending_sync || 0;
+        
+        if (isConnected) {
+            if (pendingSync > 0) {
+                // Connected but has pending sync
+                dbIndicator.className = 'status-indicator syncing';
+                dbText.textContent = `Syncing (${pendingSync})`;
+            } else {
+                // Fully connected
+                dbIndicator.className = 'status-indicator online';
+                dbText.textContent = 'Connected';
+            }
+            this.dbStatus = 'connected';
+        } else if (isLocalMode) {
+            // Local mode - database offline but using backup
+            dbIndicator.className = 'status-indicator warning';
+            dbText.textContent = `Local (${pendingSync} queued)`;
+            this.dbStatus = 'local';
+        } else {
+            // Database offline
+            dbIndicator.className = 'status-indicator offline';
+            dbText.textContent = 'Disconnected';
+            this.dbStatus = 'offline';
+        }
+    }
+    
+    async checkDatabaseStatus() {
+        try {
+            const response = await fetch('/api/db/status');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.updateDatabaseStatus(data);
+                }
+            } else {
+                // If status endpoint fails, assume database is offline
+                this.updateDatabaseStatus({
+                    primary_connected: false,
+                    local_mode: true,
+                    sync_queue: { pending_sync: 0 }
+                });
+            }
+        } catch (error) {
+            // Network error - can't check database status
+            this.updateDatabaseStatus({
+                primary_connected: false,
+                local_mode: false,
+                sync_queue: { pending_sync: 0 }
+            });
+        }
+    }
+    
+    startDatabaseStatusMonitoring() {
+        // Check immediately
+        this.checkDatabaseStatus();
+        
+        // Then check every 5 seconds
+        if (this.dbStatusCheckInterval) {
+            clearInterval(this.dbStatusCheckInterval);
+        }
+        this.dbStatusCheckInterval = setInterval(() => {
+            this.checkDatabaseStatus();
+        }, 5000);
+    }
+    
+    stopDatabaseStatusMonitoring() {
+        if (this.dbStatusCheckInterval) {
+            clearInterval(this.dbStatusCheckInterval);
+            this.dbStatusCheckInterval = null;
+        }
     }
     
     showNotification(message, type = 'info') {
@@ -977,6 +1062,12 @@ class GameEngine {
         this.startGameLoop();
         
         // Setup event listeners
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (this.ui) {
+                this.ui.stopDatabaseStatusMonitoring();
+            }
+        });
         this.setupEventListeners();
         
         console.log('✅ Game initialized successfully');

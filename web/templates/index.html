@@ -35,8 +35,16 @@
                     <button class="btn btn-warning" onclick="logoutUser()">🚪 Logout</button>
                     <button class="btn btn-info" onclick="showHelp()">❓ Help</button>
                     <div class="connection-status" id="connection-status">
-                        <span class="status-indicator online" id="status-indicator"></span>
-                        <span id="status-text">Connected</span>
+                        <div class="status-item">
+                            <span class="status-label">Network:</span>
+                            <span class="status-indicator online" id="sw-status-indicator" title="Service Worker / Network Status"></span>
+                            <span id="sw-status-text">Online</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Database:</span>
+                            <span class="status-indicator online" id="db-status-indicator" title="Database Connection Status"></span>
+                            <span id="db-status-text">Connected</span>
+                        </div>
                     </div>
                 </div>
             </div>
