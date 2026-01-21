@@ -1062,13 +1062,14 @@ class GameEngine {
         this.startGameLoop();
         
         // Setup event listeners
+        this.setupEventListeners();
+        
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             if (this.ui) {
                 this.ui.stopDatabaseStatusMonitoring();
             }
         });
-        this.setupEventListeners();
         
         console.log('✅ Game initialized successfully');
     }
@@ -2022,13 +2023,11 @@ class GameEngine {
             });
     }
     
+    // updateConnectionStatus is now handled by UIManager
+    // This method is kept for backward compatibility but delegates to UIManager
     updateConnectionStatus(connected) {
-        const indicator = document.getElementById('status-indicator');
-        const text = document.getElementById('status-text');
-        
-        if (indicator && text) {
-            indicator.className = connected ? 'status-indicator online' : 'status-indicator offline';
-            text.textContent = connected ? 'Connected' : 'Disconnected';
+        if (this.ui) {
+            this.ui.updateConnectionStatus(connected);
         }
     }
     
