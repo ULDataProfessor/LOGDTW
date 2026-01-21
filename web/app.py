@@ -67,8 +67,10 @@ except ImportError as e:
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 
-# Database configuration
-database_path = os.path.join(os.path.dirname(__file__), "stellarodyssey2080.db")
+# Database configuration - use data/db folder
+data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "db")
+os.makedirs(data_dir, exist_ok=True)
+database_path = os.path.join(data_dir, "stellarodyssey2080.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{database_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {

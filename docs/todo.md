@@ -2,7 +2,34 @@
 
 ## 🎯 Recent Updates
 
-### Project Maintenance (Latest)
+### Local Mode with SQLite Fallback (Latest)
+- ✅ **Database Local Mode**: Added automatic fallback to local SQLite when primary database is unavailable
+  - Created `web/db_adapter.py` with `DatabaseAdapter` and `LocalDatabase` classes
+  - Automatic connection monitoring and fallback
+  - Change tracking for all database operations (insert, update, delete)
+  - Automatic sync when connection is restored
+  - Manual sync via API endpoints (`/api/db/sync`, `/api/db/status`, `/api/db/check`)
+  - Local backup database stored in `data/db/local_backup.db`
+  - Integrated with existing models and API endpoints
+  - Documentation added in `docs/local_mode.md`
+
+### Data Folder Organization (Latest)
+- ✅ **Centralized Data Storage**: Created `data/db/` folder for all database files
+  - Primary database: `data/db/stellarodyssey2080.db`
+  - Local backup: `data/db/local_backup.db`
+  - Sector database: `data/db/sectors.db` (with fallback to home directory)
+  - All SQL files and database files now organized in `data/` folder
+  - Updated app configuration to use data folder
+  - Updated `.gitignore` to exclude database files in `data/db/`
+
+### Offline Status Clarification
+- ⚠️ **Note**: The "offline" status in the UI header is currently based on **network connectivity** (PWA), not database connectivity
+  - Network offline = browser cannot reach the server
+  - Database offline = database connection failed (handled by Local Mode)
+  - See `docs/OFFLINE_STATUS.md` for details
+  - Future enhancement: Add separate database status indicator
+
+### Project Maintenance
 - ✅ **Updated .gitignore**: Added database files, Flask sessions, cache files, and build artifacts
   - Added SQLite database files (*.db, *.db-journal, *.db-wal, *.db-shm)
   - Added Flask session directories
@@ -63,6 +90,7 @@
 - ✅ **Database**: SQLite persistence for game state
 - ✅ **API Endpoints**: Complete game state management
 - ✅ **Service Worker**: Offline support (PWA)
+- ✅ **Local Mode**: Automatic fallback to local SQLite with sync capabilities
 
 #### Documentation
 - ✅ **README.md**: Project overview and setup
@@ -497,6 +525,12 @@
 - **Performance Monitoring**: Added backend and frontend performance tracking, metrics collection, API endpoint monitoring
 - **Security Enhancements**: Implemented rate limiting, CSRF protection, and security headers
 - **Story Content Expansion**: Added 10 new lore entries (40 total), expanded faction storylines
+- **Local Mode with SQLite Fallback**: Implemented automatic database fallback system
+  - Automatic detection of database connection failures
+  - Local SQLite backup with change tracking
+  - Automatic sync when connection is restored
+  - API endpoints for status monitoring and manual sync
+  - All database files organized in `data/db/` folder
 
 ---
 

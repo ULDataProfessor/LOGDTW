@@ -494,7 +494,10 @@ def init_database(app, enable_local_fallback: bool = True):
     if enable_local_fallback:
         try:
             from web.db_adapter import init_db_adapter
-            local_db_path = os.path.join(os.path.dirname(__file__), "local_backup.db")
+            # Use data/db folder for local backup
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "db")
+            os.makedirs(data_dir, exist_ok=True)
+            local_db_path = os.path.join(data_dir, "local_backup.db")
             _db_adapter = init_db_adapter(db, local_db_path)
             print("✅ Database adapter initialized with local fallback")
         except Exception as e:

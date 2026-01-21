@@ -1,0 +1,8 @@
+# Database files directory
+# This directory contains SQLite database files:
+# - stellarodyssey2080.db: Primary game database
+# - local_backup.db: Local backup for offline mode
+# - sectors.db: Sector/game world database
+# 
+# These files are gitignored and should not be committed
+

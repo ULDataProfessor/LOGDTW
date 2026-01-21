@@ -179,9 +179,14 @@ class World:
         self.on_planet_surface = False
         self.planet_surface = None
 
-        # Sector persistence
+        # Sector persistence - use data/db folder if available
         self.max_sectors = max_sectors
-        default_db = os.path.join(os.path.expanduser("~"), ".stellarodyssey2080", "sectors.db")
+        # Try to use project data/db folder first, fallback to home directory
+        project_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "db")
+        if os.path.exists(os.path.dirname(project_data_dir)):
+            default_db = os.path.join(project_data_dir, "sectors.db")
+        else:
+            default_db = os.path.join(os.path.expanduser("~"), ".stellarodyssey2080", "sectors.db")
         self.sector_repo = SectorRepository(db_path or default_db)
 
         # Initialize the game world
