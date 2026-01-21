@@ -1,4 +1,5 @@
 import random
+import time
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from rich.console import Console
@@ -16,13 +17,19 @@ class CounselorResponse:
 
 
 class ShipCounselor:
-    """The ship's counselor AI - always cheeky and somewhat helpful"""
+    """The ship's counselor AI - always cheeky and somewhat helpful with enhanced intelligence"""
 
     def __init__(self):
         self.console = Console()
         self.name = "Counselor AI"
         self.personality = "cheeky"
         self.conversation_history = []
+        
+        # Enhanced: Learning and memory
+        self.player_preferences = {}  # Track what player likes/dislikes
+        self.advice_effectiveness = {}  # Track which advice was helpful
+        self.context_memory = {}  # Remember important context
+        self.interaction_count = 0
 
         # Response templates organized by mood
         self.responses = {
@@ -84,13 +91,28 @@ class ShipCounselor:
         }
 
     def chat(self, player_input: str, player_context: Dict = None) -> CounselorResponse:
-        """Process player input and return a counselor response"""
+        """Process player input and return a counselor response with enhanced intelligence"""
 
+        # Enhanced: Track interaction
+        self.interaction_count += 1
+        
         # Add to conversation history
         self.conversation_history.append(f"Player: {player_input}")
 
+        # Enhanced: Store context for future reference
+        if player_context:
+            self.context_memory[f"interaction_{self.interaction_count}"] = {
+                "input": player_input,
+                "context": player_context.copy(),
+                "timestamp": time.time()
+            }
+
         # Analyze input for context
         input_lower = player_input.lower()
+
+        # Enhanced: Check for follow-up questions or references to previous advice
+        if self._is_follow_up_question(input_lower):
+            return self._generate_follow_up_response(input_lower, player_context)
 
         # Determine response type based on input
         if any(word in input_lower for word in ["hello", "hi", "greetings", "hey"]):
@@ -100,13 +122,15 @@ class ShipCounselor:
         elif any(word in input_lower for word in ["help", "advice", "suggest"]):
             return self._generate_helpful_response(input_lower, player_context)
         elif any(word in input_lower for word in ["trade", "market", "buy", "sell"]):
-            return self._generate_topic_response("trading")
+            return self._generate_topic_response("trading", player_context)
         elif any(word in input_lower for word in ["fight", "combat", "weapon", "attack"]):
-            return self._generate_topic_response("combat")
+            return self._generate_topic_response("combat", player_context)
         elif any(word in input_lower for word in ["travel", "jump", "fuel", "destination"]):
-            return self._generate_topic_response("travel")
+            return self._generate_topic_response("travel", player_context)
         elif any(word in input_lower for word in ["stupid", "idiot", "dumb"]):
             return self._generate_response("sarcastic")
+        elif any(word in input_lower for word in ["thanks", "thank", "appreciate"]):
+            return self._generate_response("encouraging")
         else:
             return self._generate_general_response(input_lower, player_context)
 
@@ -118,30 +142,62 @@ class ShipCounselor:
     def _generate_helpful_response(
         self, input_text: str, player_context: Dict = None
     ) -> CounselorResponse:
-        """Generate a helpful response based on context"""
+        """Generate a helpful response based on context with enhanced intelligence"""
         helpful_intro = random.choice(self.responses["helpful"])
 
-        # Analyze player context for specific advice
+        # Enhanced: Analyze player context more deeply
         advice = ""
         if player_context:
-            if player_context.get("credits", 0) < 100:
-                advice = "You're broke. Maybe try earning some credits before spending them?"
-            elif player_context.get("health", 100) < 50:
-                advice = "You look like you've been through a war. Maybe invest in some medical supplies?"
-            elif player_context.get("fuel", 100) < 20:
-                advice = "Your fuel is running low. Running out of fuel in space is... suboptimal."
+            credits = player_context.get("credits", 0)
+            health = player_context.get("health", 100)
+            fuel = player_context.get("fuel", 100)
+            level = player_context.get("level", 1)
+            
+            # Priority-based advice
+            if health < 30:
+                advice = "Your health is critically low! Find medical supplies immediately, or you might not survive your next encounter."
+            elif fuel < 15:
+                advice = "You're almost out of fuel! Find a refueling station before you're stranded in deep space. Trust me, it's not fun."
+            elif credits < 50:
+                advice = "You're running low on credits. Consider taking on missions or trading goods to build up your reserves."
+            elif credits < 200 and level < 3:
+                advice = "You're early in your journey. Focus on exploration and small trades to build experience and wealth."
+            elif credits > 5000:
+                advice = "You've got a nice nest egg! Consider investing in ship upgrades or expanding your trading operations."
             else:
-                advice = random.choice(self.advice_topics["general"])
+                # Enhanced: Use learned preferences
+                preferred_topics = [k for k, v in self.player_preferences.items() if v > 0]
+                if preferred_topics:
+                    topic = random.choice(preferred_topics)
+                    advice = random.choice(self.advice_topics.get(topic, self.advice_topics["general"]))
+                else:
+                    advice = random.choice(self.advice_topics["general"])
         else:
             advice = random.choice(self.advice_topics["general"])
 
         message = f"{helpful_intro} {advice}"
         return CounselorResponse(message=message, mood="helpful")
 
-    def _generate_topic_response(self, topic: str) -> CounselorResponse:
-        """Generate a response for a specific topic"""
+    def _generate_topic_response(self, topic: str, player_context: Dict = None) -> CounselorResponse:
+        """Generate a response for a specific topic with enhanced context awareness"""
         helpful_intro = random.choice(self.responses["helpful"])
-        advice = random.choice(self.advice_topics[topic])
+        
+        # Enhanced: Select advice based on player context
+        if player_context and topic in self.advice_topics:
+            # Use context-specific advice
+            if topic == "trading" and player_context.get("credits", 0) < 200:
+                advice = "Start with small trades to build capital. Look for items with at least 15% profit margins."
+            elif topic == "combat" and player_context.get("health", 100) < 50:
+                advice = "Your health is low. Consider avoiding combat until you can heal, or use defensive tactics."
+            elif topic == "travel" and player_context.get("fuel", 100) < 30:
+                advice = "Plan your routes carefully. Running out of fuel between sectors is... problematic."
+            else:
+                advice = random.choice(self.advice_topics[topic])
+        else:
+            advice = random.choice(self.advice_topics.get(topic, self.advice_topics["general"]))
+
+        # Enhanced: Track topic preference
+        self.player_preferences[topic] = self.player_preferences.get(topic, 0) + 1
 
         message = f"{helpful_intro} {advice}"
         return CounselorResponse(message=message, mood="helpful", context=topic)
@@ -188,3 +244,36 @@ class ShipCounselor:
             return "No conversation history yet."
 
         return f"Conversation history: {len(self.conversation_history)} exchanges recorded."
+    
+    def _is_follow_up_question(self, input_text: str) -> bool:
+        """Check if input is a follow-up to previous advice"""
+        follow_up_indicators = ["what about", "how about", "what if", "but", "however", "actually"]
+        return any(indicator in input_text for indicator in follow_up_indicators)
+    
+    def _generate_follow_up_response(self, input_text: str, player_context: Dict = None) -> CounselorResponse:
+        """Generate a response to a follow-up question"""
+        responses = [
+            "Ah, good question! Let me reconsider...",
+            "Hmm, you raise a valid point. Here's what I think:",
+            "You know what, you might be onto something there. Consider this:",
+            "Fair enough. Let me refine my advice:",
+        ]
+        
+        intro = random.choice(responses)
+        advice = random.choice(self.advice_topics["general"])
+        
+        message = f"{intro} {advice}"
+        return CounselorResponse(message=message, mood="helpful")
+    
+    def learn_from_feedback(self, feedback: str, was_helpful: bool):
+        """Learn from player feedback to improve future advice"""
+        # Track advice effectiveness
+        if was_helpful:
+            self.advice_effectiveness["positive"] = self.advice_effectiveness.get("positive", 0) + 1
+        else:
+            self.advice_effectiveness["negative"] = self.advice_effectiveness.get("negative", 0) + 1
+        
+        # Adjust personality slightly based on feedback
+        if was_helpful and self.personality == "cheeky":
+            # Become slightly more helpful if advice is appreciated
+            pass  # Keep personality but remember preference

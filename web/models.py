@@ -5,15 +5,20 @@ SQLite3-based models with SQLAlchemy ORM
 """
 
 import json
+import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey, text
 from sqlalchemy.orm import relationship
+from sqlalchemy.exc import OperationalError, DisconnectionError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+# Database adapter for local fallback (initialized in app.py)
+_db_adapter = None
 
 
 class User(db.Model):
@@ -479,9 +484,22 @@ class GameSettings(db.Model):
 
 
 # Database utility functions
-def init_database(app):
+def init_database(app, enable_local_fallback: bool = True):
     """Initialize the database with the Flask app"""
+    global _db_adapter
+    
     db.init_app(app)
+    
+    # Initialize database adapter for local fallback
+    if enable_local_fallback:
+        try:
+            from web.db_adapter import init_db_adapter
+            local_db_path = os.path.join(os.path.dirname(__file__), "local_backup.db")
+            _db_adapter = init_db_adapter(db, local_db_path)
+            print("✅ Database adapter initialized with local fallback")
+        except Exception as e:
+            print(f"Warning: Could not initialize database adapter: {e}")
+            _db_adapter = None
 
     with app.app_context():
         # Create all tables
@@ -567,32 +585,69 @@ def init_database(app):
 
 def get_or_create_player(session_id: str) -> Player:
     """Get existing player or create new one"""
-    player = Player.query.filter_by(session_id=session_id).first()
+    try:
+        player = Player.query.filter_by(session_id=session_id).first()
 
-    if not player:
-        player = Player(session_id=session_id)
-        db.session.add(player)
+        if not player:
+            player = Player(session_id=session_id)
+            db.session.add(player)
 
-        # Add starting inventory
-        starting_items = [
-            ("Food", "commodity", 10, 50),
-            ("Laser Pistol", "weapon", 1, 200),
-            ("Basic Scanner", "equipment", 1, 100),
-        ]
+            # Add starting inventory
+            starting_items = [
+                ("Food", "commodity", 10, 50),
+                ("Laser Pistol", "weapon", 1, 200),
+                ("Basic Scanner", "equipment", 1, 100),
+            ]
 
-        for name, item_type, quantity, value in starting_items:
-            item = InventoryItem(
-                player=player, name=name, item_type=item_type, quantity=quantity, value=value
-            )
-            db.session.add(item)
+            for name, item_type, quantity, value in starting_items:
+                item = InventoryItem(
+                    player=player, name=name, item_type=item_type, quantity=quantity, value=value
+                )
+                db.session.add(item)
 
+            db.session.commit()
+            print(f"✅ Created new player: {player.name} ({session_id})")
+            
+            # Queue for sync if adapter is available (will check connection internally)
+            if _db_adapter:
+                try:
+                    if not _db_adapter.is_connected():
+                        _db_adapter.queue_for_sync("players", "insert", player.id, player.to_dict())
+                except Exception:
+                    pass  # Don't fail if sync queueing fails
+
+        player.update_last_active()
         db.session.commit()
-        print(f"✅ Created new player: {player.name} ({session_id})")
+        
+        # Queue update for sync if adapter is available
+        if _db_adapter:
+            try:
+                if not _db_adapter.is_connected():
+                    _db_adapter.queue_for_sync("players", "update", player.id, player.to_dict())
+            except Exception:
+                pass  # Don't fail if sync queueing fails
 
-    player.update_last_active()
-    db.session.commit()
-
-    return player
+        return player
+    except (OperationalError, DisconnectionError) as e:
+        # Fallback to local mode
+        if _db_adapter:
+            print(f"⚠️ Database connection lost, using local mode: {e}")
+            # Queue the operation for later sync
+            try:
+                # Try to get player data from session or create minimal record
+                player_data = {
+                    "session_id": session_id,
+                    "name": "Captain",
+                    "ship_name": "Starfarer",
+                    "level": 1,
+                    "experience": 0,
+                    "credits": 1000,
+                }
+                _db_adapter.queue_for_sync("players", "insert", None, player_data)
+            except Exception:
+                pass
+        # Re-raise to let caller know connection failed
+        raise
 
 
 def cleanup_old_sessions(hours: int = 24):
@@ -611,13 +666,60 @@ def cleanup_old_sessions(hours: int = 24):
 
 def get_database_stats() -> Dict[str, Any]:
     """Get database statistics"""
-    return {
-        "total_players": Player.query.count(),
-        "active_players_24h": Player.query.filter(
-            Player.last_active >= datetime.utcnow() - timedelta(hours=24)
-        ).count(),
-        "total_events": EventHistory.query.count(),
-        "total_missions": PlayerMission.query.count(),
-        "database_size": db.engine.execute("PRAGMA page_count").scalar()
-        * db.engine.execute("PRAGMA page_size").scalar(),
-    }
+    try:
+        stats = {
+            "total_players": Player.query.count(),
+            "active_players_24h": Player.query.filter(
+                Player.last_active >= datetime.utcnow() - timedelta(hours=24)
+            ).count(),
+            "total_events": EventHistory.query.count(),
+            "total_missions": PlayerMission.query.count(),
+        }
+        
+        # Try to get database size (SQLite specific)
+        try:
+            if db.engine and hasattr(db.engine, "execute"):
+                page_count = db.engine.execute(text("PRAGMA page_count")).scalar()
+                page_size = db.engine.execute(text("PRAGMA page_size")).scalar()
+                stats["database_size"] = page_count * page_size if page_count and page_size else 0
+            else:
+                stats["database_size"] = 0
+        except Exception:
+            stats["database_size"] = 0
+        
+        # Add adapter status if available
+        if _db_adapter:
+            adapter_status = _db_adapter.get_status()
+            stats["adapter_status"] = adapter_status
+        
+        return stats
+    except (OperationalError, DisconnectionError) as e:
+        # Return minimal stats in case of connection error
+        if _db_adapter:
+            return {
+                "total_players": 0,
+                "active_players_24h": 0,
+                "total_events": 0,
+                "total_missions": 0,
+                "database_size": 0,
+                "adapter_status": _db_adapter.get_status(),
+                "error": "Database connection lost"
+            }
+        raise
+
+
+def sync_database() -> Dict[str, Any]:
+    """Sync pending changes from local database to primary"""
+    if not _db_adapter:
+        return {
+            "success": False,
+            "message": "Database adapter not initialized"
+        }
+    return _db_adapter.sync_pending_changes()
+
+
+def get_db_adapter_status() -> Optional[Dict[str, Any]]:
+    """Get database adapter status"""
+    if not _db_adapter:
+        return None
+    return _db_adapter.get_status()

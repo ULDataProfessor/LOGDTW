@@ -38,7 +38,7 @@ class SaveMetadata:
 
 @dataclass
 class GameState:
-    """Complete game state for saving/loading"""
+    """Complete game state for saving/loading with enhanced persistence"""
 
     player_data: Dict
     world_data: Dict
@@ -51,6 +51,9 @@ class GameState:
     statistics: Dict
     achievements: List[str]
     timestamp: float
+    ai_players_data: Optional[Dict] = None
+    counselor_data: Optional[Dict] = None
+    game_version: str = "1.0.0"
 
 
 class SaveGameSystem:
@@ -170,7 +173,7 @@ class SaveGameSystem:
             with open(save_file, "wb") as f:
                 f.write(compressed_data)
 
-            # Create metadata
+            # Enhanced: Create metadata with more information
             metadata = SaveMetadata(
                 save_id=save_id,
                 player_name=player_name,
@@ -179,7 +182,7 @@ class SaveGameSystem:
                 current_sector=game_state.world_data.get("current_sector", 1),
                 credits=game_state.player_data.get("credits", 0),
                 play_time=game_state.statistics.get("play_time", 0),
-                game_version=self.game_version,
+                game_version=getattr(game_state, "game_version", self.game_version),
                 save_date=datetime.now().isoformat(),
                 file_size=len(compressed_data),
                 checksum=checksum,
@@ -247,7 +250,7 @@ class SaveGameSystem:
         return True
 
     def _migrate_save_data(self, game_state: GameState) -> GameState:
-        """Migrate save data from older versions"""
+        """Migrate save data from older versions with enhanced validation"""
         # Handle version compatibility issues
 
         # Add missing fields with defaults
@@ -256,7 +259,29 @@ class SaveGameSystem:
 
         if not hasattr(game_state, "statistics"):
             game_state.statistics = {}
-
+        
+        # Enhanced: Add new fields for new features
+        if not hasattr(game_state, "ai_players_data"):
+            game_state.ai_players_data = None
+        
+        if not hasattr(game_state, "counselor_data"):
+            game_state.counselor_data = None
+        
+        if not hasattr(game_state, "game_version"):
+            game_state.game_version = self.game_version
+        
+        # Enhanced: Validate critical data structures
+        if not isinstance(game_state.player_data, dict):
+            game_state.player_data = {}
+        if not isinstance(game_state.world_data, dict):
+            game_state.world_data = {}
+        if not isinstance(game_state.npc_data, dict):
+            game_state.npc_data = {}
+        
+        # Enhanced: Ensure NPC relationships structure exists
+        if "relationships" not in game_state.npc_data:
+            game_state.npc_data["relationships"] = {}
+        
         # Update game state fields as needed
         return game_state
 
@@ -511,7 +536,7 @@ class SaveGameSystem:
         return deleted_count
 
     def verify_save_integrity(self, save_id: str) -> Dict[str, Any]:
-        """Verify the integrity of a save file"""
+        """Verify the integrity of a save file with enhanced validation"""
         if save_id not in self.save_metadata:
             return {"valid": False, "error": "Save not found"}
 
@@ -538,16 +563,43 @@ class SaveGameSystem:
             if actual_checksum != metadata.checksum:
                 return {"valid": False, "error": "Checksum mismatch - file may be corrupted"}
 
-            # Try to load the save
+            # Enhanced: Try to load and validate the save structure
             try:
                 decompressed = self._decompress_data(data)
                 game_state = pickle.loads(decompressed)
+
+                # Enhanced: Validate critical data structures
+                validation_errors = []
+                
+                if not hasattr(game_state, "player_data") or not isinstance(game_state.player_data, dict):
+                    validation_errors.append("Invalid player_data structure")
+                
+                if not hasattr(game_state, "world_data") or not isinstance(game_state.world_data, dict):
+                    validation_errors.append("Invalid world_data structure")
+                
+                if not hasattr(game_state, "timestamp") or not isinstance(game_state.timestamp, (int, float)):
+                    validation_errors.append("Invalid timestamp")
+                
+                # Enhanced: Check version compatibility
+                save_version = getattr(game_state, "game_version", "unknown")
+                if save_version != self.game_version:
+                    validation_errors.append(f"Version mismatch: save={save_version}, current={self.game_version}")
+
+                if validation_errors:
+                    return {
+                        "valid": False,
+                        "error": f"Data validation failed: {', '.join(validation_errors)}",
+                        "can_load": False,
+                    }
 
                 return {
                     "valid": True,
                     "file_size": actual_size,
                     "checksum": actual_checksum,
                     "can_load": True,
+                    "version": save_version,
+                    "player_level": game_state.player_data.get("level", 0),
+                    "credits": game_state.player_data.get("credits", 0),
                 }
 
             except Exception as e:
@@ -568,8 +620,10 @@ class SaveGameSystem:
         settings,
         statistics,
         achievements: Optional[List[str]] = None,
+        ai_players: Optional[any] = None,
+        counselor: Optional[any] = None,
     ) -> GameState:
-        """Create a GameState object from game components"""
+        """Create a GameState object from game components with enhanced state persistence"""
 
         # Convert objects to serializable dictionaries
         player_data = self._serialize_object(player)
@@ -579,6 +633,37 @@ class SaveGameSystem:
         trading_data = self._serialize_object(trading)
         skill_data = self._serialize_object(skills)
         combat_data = self._serialize_object(combat)
+        
+        # Enhanced: Save AI players state
+        ai_players_data = {}
+        if ai_players:
+            ai_players_data = self._serialize_object(ai_players)
+        
+        # Enhanced: Save counselor conversation history
+        counselor_data = {}
+        if counselor and hasattr(counselor, 'conversation_history'):
+            counselor_data = {
+                "conversation_history": counselor.conversation_history[-50:],  # Last 50 exchanges
+                "personality": getattr(counselor, 'personality', 'cheeky'),
+            }
+        
+        # Enhanced: Save market state more comprehensively
+        if trading_data and hasattr(trading, 'market_history'):
+            trading_data['market_history'] = getattr(trading, 'market_history', [])[-100:]  # Last 100 trades
+        
+        # Enhanced: Save NPC states and relationships
+        if npc_data and hasattr(npcs, 'npcs'):
+            for npc_name, npc in npcs.npcs.items():
+                if hasattr(npc, 'relationships'):
+                    npc_data.setdefault('relationships', {})[npc_name] = npc.relationships
+                if hasattr(npc, 'personality_traits'):
+                    npc_data.setdefault('personality_traits', {})[npc_name] = npc.personality_traits
+        
+        # Enhanced: Save world exploration state
+        if world_data and hasattr(world, 'explored_sectors'):
+            world_data['explored_sectors'] = getattr(world, 'explored_sectors', [])
+        if world_data and hasattr(world, 'sector_connections'):
+            world_data['sector_connections'] = self._serialize_object(getattr(world, 'sector_connections', {}))
 
         return GameState(
             player_data=player_data,

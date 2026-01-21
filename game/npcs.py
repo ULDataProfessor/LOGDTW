@@ -1,9 +1,10 @@
 """
 NPC system for LOGDTW2002
-Handles NPCs, conversations, and interactive features
+Handles NPCs, conversations, and interactive features with enhanced intelligence
 """
 
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -25,7 +26,7 @@ class DialogueNode:
 
 @dataclass
 class NPC:
-    """Represents an NPC in the game"""
+    """Represents an NPC in the game with enhanced intelligence"""
 
     name: str
     npc_type: str  # trader, pirate, scientist, official, etc.
@@ -39,6 +40,13 @@ class NPC:
     personality_traits: Dict[str, int] = field(default_factory=dict)
     relationships: Dict[str, int] = field(default_factory=dict)
     dialogue_tree: Dict[str, DialogueNode] = field(default_factory=dict)
+    
+    # Enhanced: Memory and learning
+    memory: Dict[str, any] = field(default_factory=dict)  # Remember interactions
+    conversation_history: List[Dict] = field(default_factory=list)  # Track conversations
+    player_interactions: int = 0  # Count interactions with player
+    last_interaction_time: float = 0.0  # Timestamp of last interaction
+    learned_preferences: Dict[str, any] = field(default_factory=dict)  # Learn player preferences
 
     def __post_init__(self):
         if self.dialogue is None:
@@ -51,10 +59,63 @@ class NPC:
     def adjust_relationship(self, target: str, amount: int) -> None:
         """Modify relationship score with player or other NPC"""
         self.relationships[target] = self.relationships.get(target, 0) + amount
+        # Enhanced: Remember significant relationship changes
+        if abs(amount) >= 10:
+            self.memory[f"relationship_change_{target}"] = {
+                "amount": amount,
+                "timestamp": time.time()
+            }
 
     def get_relationship(self, target: str) -> int:
         """Get current relationship score"""
         return self.relationships.get(target, 0)
+    
+    def remember_interaction(self, player_name: str, interaction_type: str, details: Dict = None):
+        """Remember an interaction with the player"""
+        import time
+        self.player_interactions += 1
+        self.last_interaction_time = time.time()
+        
+        memory_key = f"interaction_{self.player_interactions}"
+        self.memory[memory_key] = {
+            "player": player_name,
+            "type": interaction_type,
+            "details": details or {},
+            "timestamp": time.time()
+        }
+        
+        # Enhanced: Learn from interactions
+        if interaction_type == "trade":
+            if details:
+                item = details.get("item")
+                if item:
+                    self.learned_preferences[f"player_likes_{item}"] = True
+        elif interaction_type == "quest_completed":
+            self.learned_preferences["player_helpful"] = True
+            self.adjust_relationship(player_name, 5)
+    
+    def get_personalized_greeting(self, player_name: str) -> str:
+        """Generate a personalized greeting based on relationship and memory"""
+        relationship = self.get_relationship(player_name)
+        
+        # Enhanced: Use memory to personalize
+        if self.player_interactions > 0:
+            if relationship > 50:
+                return f"Ah, {player_name}! Always a pleasure to see you again, my friend."
+            elif relationship > 20:
+                return f"Hello {player_name}, good to see you back."
+            elif relationship < -20:
+                return f"{player_name}... I remember you. What do you want?"
+            else:
+                return f"Greetings, {player_name}."
+        else:
+            # First meeting
+            if self.personality == "friendly":
+                return f"Welcome, traveler! I'm {self.name}. How can I help you?"
+            elif self.personality == "hostile":
+                return f"What do you want, {player_name}?"
+            else:
+                return f"Hello. I'm {self.name}."
 
 
 class NPCSystem:
@@ -437,7 +498,7 @@ class NPCSystem:
         quest_system: Optional[QuestSystem] = None,
         choices: Optional[List[str]] = None,
     ) -> Dict:
-        """Start a conversation with an NPC using a dialogue tree.
+        """Start a conversation with an NPC using a dialogue tree with enhanced intelligence.
 
         Parameters
         ----------
@@ -461,10 +522,22 @@ class NPCSystem:
 
         npc = self.npcs[npc_name]
 
-        if npc.personality == "hostile" and player.reputation.get(npc.faction, 0) < -50:
+        # Enhanced: Check relationship and memory
+        relationship = npc.get_relationship(player.name)
+        if npc.personality == "hostile" and relationship < -50:
             return {"success": False, "message": f"{npc.name} refuses to talk to you."}
+        
+        # Enhanced: Use personalized greeting
+        greeting = npc.get_personalized_greeting(player.name)
+        
+        # Enhanced: Remember this interaction
+        npc.remember_interaction(player.name, "conversation", {
+            "location": npc.location,
+            "relationship": relationship
+        })
 
         history: List[str] = []
+        history.append(f"{npc.name}: {greeting}")
         current = "start"
         choice_iter = iter(choices) if choices else None
 
@@ -473,10 +546,12 @@ class NPCSystem:
             if not node:
                 break
 
-            history.append(f"{npc.name}: {node.text}")
+            if current != "start":  # Don't repeat greeting
+                history.append(f"{npc.name}: {node.text}")
 
             if node.quest_id and quest_system:
                 quest_system.accept_quest(player, node.quest_id)
+                npc.remember_interaction(player.name, "quest_offered", {"quest_id": node.quest_id})
             if node.faction_change:
                 for faction, change in node.faction_change.items():
                     player.reputation[faction] = player.reputation.get(faction, 0) + change
@@ -503,8 +578,15 @@ class NPCSystem:
                     continue
 
             current = node.choices[chosen_key]
+        
+        # Enhanced: Store conversation in history
+        npc.conversation_history.append({
+            "player": player.name,
+            "history": history,
+            "timestamp": time.time()
+        })
 
-        return {"success": True, "history": history, "npc": npc}
+        return {"success": True, "history": history, "npc": npc, "greeting": greeting}
 
     def get_conversation_options(self, npc: NPC) -> List[str]:
         """Get available conversation options"""

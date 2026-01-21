@@ -127,5 +127,41 @@ LORE_ENTRIES: Dict[str, LoreEntry] = {
         topic="The Shadow War",
         content="A secret conflict being fought in the shadows between Federation Intelligence and unknown enemies. The Shadow War has been going on for decades, but most people don't know it exists. Federation Intelligence operates in complete secrecy, using extreme measures to fight enemies that may not even be human. The war has cost countless lives, but the public is never told. Some believe the Shadow War is actually a cover for Federation Intelligence's own operations, while others think the enemies are so terrible that the truth must be hidden.",
     ),
+    "The Quantum Network": LoreEntry(
+        topic="The Quantum Network",
+        content="A mysterious communication network that spans the galaxy, allowing instant communication across vast distances. The network's origins are unknown—some believe it was created by the ancient civilization, others think it's a natural phenomenon. The network is used by all major factions, but no one controls it. Messages sent through the network are encrypted and untraceable, making it perfect for secret communications. Some believe the network is sentient and monitors all communications, while others think it's just a tool waiting to be understood.",
+    ),
+    "The First Contact Protocol": LoreEntry(
+        topic="The First Contact Protocol",
+        content="A set of rules established after humanity's first encounter with alien life. The protocol governs how to approach unknown species, what information to share, and how to avoid conflict. The protocol has been updated many times as new species are discovered, but the core principles remain: respect, caution, and communication. Breaking the protocol can result in severe consequences, including being banned from exploration. The protocol is taught to all explorers and diplomats, and violations are taken very seriously.",
+    ),
+    "The Resource Wars": LoreEntry(
+        topic="The Resource Wars",
+        content="A series of conflicts that occurred before the Great War, fought over rare materials needed for space travel and technology. The wars were brutal and costly, leading to the depletion of many resources. The Resource Wars ended when the Federation was formed and established fair distribution of resources. However, some resources remain scarce, and conflicts still break out over them. The most valuable resources are quantum crystals, used in quantum drives, and rare metals needed for advanced technology. Control of resource-rich sectors is a major source of conflict.",
+    ),
+    "The Time Anomalies": LoreEntry(
+        topic="The Time Anomalies",
+        content="Strange phenomena where time behaves differently, causing ships to experience time dilation or even travel through time. Time anomalies are most common in the void, but they can occur anywhere. Ships caught in time anomalies have been known to arrive at their destination before they left, or arrive years after they were expected. Some anomalies are stable and can be used for time travel, while others are dangerous and can trap ships in temporal loops. Scientists are still trying to understand time anomalies, but they remain one of the greatest mysteries of the galaxy.",
+    ),
+    "The Galactic Council": LoreEntry(
+        topic="The Galactic Council",
+        content="The governing body of the Federation, made up of representatives from all major colonies and factions. The Council makes decisions about trade, exploration, and conflict resolution. Council meetings are held on Earth, and decisions require a majority vote. The Council has been criticized for being slow to act and for favoring core worlds over outer colonies. Some factions have left the Federation because they felt the Council wasn't representing their interests. Despite its flaws, the Council has maintained peace for over a century.",
+    ),
+    "The Clone Wars": LoreEntry(
+        topic="The Clone Wars",
+        content="A conflict that occurred a century ago when a rogue scientist created an army of clones to take over the galaxy. The clones were perfect copies of the galaxy's greatest warriors, and they nearly succeeded in their goal. The war ended when the original scientist was killed, causing all clones to lose their purpose and shut down. The technology for creating clones was banned, and all research was destroyed. However, rumors persist that some clones survived and are hiding in the outer sectors, waiting for their chance to return.",
+    ),
+    "The Energy Crisis": LoreEntry(
+        topic="The Energy Crisis",
+        content="A period when the galaxy ran out of traditional energy sources, forcing the development of quantum energy technology. The crisis nearly destroyed civilization, but it also led to major breakthroughs in energy production. Quantum reactors now power most ships and stations, but they require rare materials to build and maintain. The crisis taught the galaxy the importance of conservation and innovation. Some believe another energy crisis is coming, as quantum crystals become scarcer. Scientists are working on alternative energy sources, but nothing has matched quantum energy's efficiency.",
+    ),
+    "The Mind Control Experiments": LoreEntry(
+        topic="The Mind Control Experiments",
+        content="A dark chapter in Federation history when scientists attempted to create mind control technology. The experiments were conducted in secret, using prisoners and volunteers. The technology was never perfected, but it did create several dangerous individuals with psychic abilities. The experiments were shut down when the truth was revealed, and all research was destroyed. However, some of the test subjects escaped and are still at large. The Federation denies the experiments ever happened, but survivors tell a different story.",
+    ),
+    "The Dyson Sphere": LoreEntry(
+        topic="The Dyson Sphere",
+        content="A massive structure built around a star to capture all its energy. The Dyson Sphere was discovered in a remote sector, and its builders are unknown. The sphere is made of materials that don't exist anywhere else, and its technology is far beyond current understanding. Scientists have been studying it for years, but they've only scratched the surface. Some believe the sphere is a weapon, others think it's a power source, and a few fear it's a prison. The sphere is guarded by automated defenses that attack anyone who gets too close.",
+    ),
 }
 

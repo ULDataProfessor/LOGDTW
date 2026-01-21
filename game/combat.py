@@ -11,7 +11,7 @@ from game.player import Player, Item
 
 @dataclass
 class Enemy:
-    """Represents an enemy in combat"""
+    """Represents an enemy in combat with enhanced AI"""
 
     name: str
     health: int
@@ -23,10 +23,36 @@ class Enemy:
     loot: List[Item] = None
     experience_reward: int = 0
     credits_reward: int = 0
+    
+    # Enhanced: AI attributes
+    ai_style: str = "balanced"  # aggressive, defensive, tactical, berserker
+    combat_memory: Dict[str, any] = None  # Remember player tactics
+    tactical_state: str = "assessing"  # assessing, aggressive, defensive, retreating
 
     def __post_init__(self):
         if self.loot is None:
             self.loot = []
+        if self.combat_memory is None:
+            self.combat_memory = {}
+    
+    def get_health_percentage(self) -> float:
+        """Get health as percentage"""
+        return self.health / self.max_health if self.max_health > 0 else 0.0
+    
+    def should_retreat(self, player_health: int, player_max_health: int) -> bool:
+        """Determine if enemy should retreat"""
+        health_pct = self.get_health_percentage()
+        player_health_pct = player_health / player_max_health if player_max_health > 0 else 1.0
+        
+        # Retreat if health is very low and player is still strong
+        if health_pct < 0.2 and player_health_pct > 0.5:
+            return True
+        
+        # Aggressive enemies rarely retreat
+        if self.ai_style == "berserker":
+            return False
+        
+        return False
 
 
 class CombatSystem:
@@ -221,6 +247,17 @@ class CombatSystem:
         scaled_exp = int(template["experience_reward"] * total_scaling)
         scaled_credits = int(template["credits_reward"] * total_scaling)
         
+        # Enhanced: Assign AI style based on enemy type
+        ai_style_map = {
+            "pirate": "aggressive",
+            "alien": "tactical",
+            "robot": "defensive",
+            "creature": "berserker",
+            "military": "tactical",
+            "mercenary": "tactical",
+        }
+        ai_style = ai_style_map.get(template["enemy_type"], "balanced")
+        
         self.current_enemy = Enemy(
             name=template["name"],
             health=scaled_health,
@@ -231,6 +268,7 @@ class CombatSystem:
             description=template["description"],
             experience_reward=scaled_exp,
             credits_reward=scaled_credits,
+            ai_style=ai_style,
         )
 
         self.combat_log.append(f"A {self.current_enemy.name} appears!")
@@ -394,11 +432,64 @@ class CombatSystem:
         return {"success": True, "message": f"You equip {item.name}!"}
 
     def _enemy_attack(self, defending: bool = False) -> Dict:
-        """Enemy attacks the player"""
+        """Enemy attacks the player with enhanced tactical AI"""
         if not self.current_enemy or not self.player:
             return {"success": False, "message": "No enemy or player"}
 
-        # Calculate damage
+        # Enhanced: Tactical decision-making
+        enemy_action = self._choose_enemy_action(defending)
+        
+        if enemy_action == "retreat":
+            return self._enemy_retreat()
+        elif enemy_action == "defensive":
+            return self._enemy_defensive()
+        elif enemy_action == "power_attack":
+            return self._enemy_power_attack(defending)
+        else:  # normal attack
+            return self._enemy_normal_attack(defending)
+    
+    def _choose_enemy_action(self, player_defending: bool) -> str:
+        """Choose enemy action based on tactical AI"""
+        enemy = self.current_enemy
+        health_pct = enemy.get_health_percentage()
+        player_health_pct = self.player.health / self.player.max_health if self.player.max_health > 0 else 1.0
+        
+        # Enhanced: AI style affects decision-making
+        if enemy.ai_style == "aggressive" or enemy.ai_style == "berserker":
+            # Always attack aggressively
+            if health_pct < 0.3 and random.random() < 0.3:
+                return "power_attack"  # Desperate power attack
+            return "attack"
+        
+        elif enemy.ai_style == "defensive":
+            # More cautious
+            if health_pct < 0.4:
+                return "defensive"
+            elif player_health_pct < 0.3:
+                return "power_attack"  # Finish off weak player
+            return "attack"
+        
+        else:  # tactical
+            # Smart decision-making
+            if enemy.should_retreat(self.player.health, self.player.max_health):
+                return "retreat"
+            
+            # If player is defending, use power attack to break through
+            if player_defending and health_pct > 0.5:
+                return "power_attack"
+            
+            # If enemy is low on health, go defensive
+            if health_pct < 0.3:
+                return "defensive"
+            
+            # If player is low, finish them
+            if player_health_pct < 0.25:
+                return "power_attack"
+            
+            return "attack"
+    
+    def _enemy_normal_attack(self, defending: bool = False) -> Dict:
+        """Enemy performs a normal attack"""
         enemy_damage = self.current_enemy.damage
         player_defense = self.player.get_total_defense()
 
@@ -429,6 +520,94 @@ class CombatSystem:
             self.end_combat()
 
         return result
+    
+    def _enemy_power_attack(self, defending: bool = False) -> Dict:
+        """Enemy performs a powerful attack"""
+        enemy_damage = self.current_enemy.damage
+        player_defense = self.player.get_total_defense()
+
+        # Power attack does 1.5x damage but has 20% chance to miss
+        if random.random() < 0.2:
+            result = {
+                "success": True,
+                "damage_dealt": 0,
+                "player_health": self.player.health,
+                "message": f"The {self.current_enemy.name} attempts a powerful attack but misses!",
+            }
+            self.combat_log.append(result["message"])
+            return result
+
+        # Enhanced damage
+        damage_variation = random.uniform(1.3, 1.7)  # 30-70% bonus
+        base_damage = max(1, int((enemy_damage - player_defense) * damage_variation))
+
+        # If defending, still reduce but less
+        if defending:
+            base_damage = max(1, int(base_damage * 0.75))
+
+        # Apply damage
+        self.player.take_damage(base_damage)
+
+        result = {
+            "success": True,
+            "damage_dealt": base_damage,
+            "player_health": self.player.health,
+            "message": f"The {self.current_enemy.name} unleashes a POWERFUL ATTACK for {base_damage} damage!",
+        }
+
+        self.combat_log.append(result["message"])
+
+        # Check if player is defeated
+        if self.player.health <= 0:
+            result["player_defeated"] = True
+            result["message"] += "\nYou have been defeated!"
+            self.end_combat()
+
+        return result
+    
+    def _enemy_defensive(self) -> Dict:
+        """Enemy takes defensive stance"""
+        # Enemy heals slightly or prepares for next turn
+        heal_amount = min(10, self.current_enemy.max_health - self.current_enemy.health)
+        if heal_amount > 0:
+            self.current_enemy.health += heal_amount
+        
+        result = {
+            "success": True,
+            "damage_dealt": 0,
+            "player_health": self.player.health,
+            "message": f"The {self.current_enemy.name} takes a defensive stance" + 
+                      (f" and recovers {heal_amount} health!" if heal_amount > 0 else "!"),
+        }
+
+        self.combat_log.append(result["message"])
+        return result
+    
+    def _enemy_retreat(self) -> Dict:
+        """Enemy attempts to retreat"""
+        retreat_chance = 0.6  # 60% chance to successfully retreat
+        
+        if random.random() < retreat_chance:
+            result = {
+                "success": True,
+                "damage_dealt": 0,
+                "player_health": self.player.health,
+                "message": f"The {self.current_enemy.name} retreats from combat!",
+                "enemy_retreated": True,
+            }
+            self.combat_log.append(result["message"])
+            self.end_combat()
+            return result
+        else:
+            # Failed retreat, enemy is vulnerable
+            result = {
+                "success": True,
+                "damage_dealt": 0,
+                "player_health": self.player.health,
+                "message": f"The {self.current_enemy.name} attempts to retreat but fails!",
+            }
+            self.combat_log.append(result["message"])
+            return result
 
     def _give_rewards(self):
         """Give rewards for defeating the enemy"""

@@ -1133,6 +1133,108 @@ h1, h2, h3, h4, h5, h6 {
         padding: var(--spacing-xs);
         font-size: 0.9rem;
     }
+    
+    /* Enhanced touch interactions */
+    .action-btn, .quick-btn, .btn {
+        min-height: 48px;
+        min-width: 48px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: rgba(0, 255, 255, 0.3);
+    }
+    
+    /* Swipe gestures for panel navigation */
+    .left-panel, .right-panel {
+        position: relative;
+        overflow-x: hidden;
+    }
+    
+    /* Collapsible panels on mobile */
+    .panel.collapsible {
+        max-height: 300px;
+        overflow-y: auto;
+        transition: max-height 0.3s ease;
+    }
+    
+    .panel.collapsible.collapsed {
+        max-height: 60px;
+    }
+    
+    /* Responsive terminal font scaling */
+    .terminal-screen {
+        font-size: clamp(0.7rem, 2.5vw, 0.9rem);
+    }
+    
+    /* Mobile-optimized action buttons grid */
+    .action-buttons {
+        gap: var(--spacing-xs);
+    }
+    
+    /* Better spacing for small screens */
+    .header-actions {
+        flex-wrap: wrap;
+        gap: var(--spacing-xs);
+    }
+    
+    .header-actions .btn {
+        font-size: 0.8rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+}
+
+/* Extra small screens (320px and below) */
+@media (max-width: 320px) {
+    .game-interface {
+        padding: 4px;
+        gap: 4px;
+    }
+    
+    .title-main {
+        font-size: 1.2rem;
+    }
+    
+    .panel {
+        padding: 8px;
+        font-size: 0.85rem;
+    }
+    
+    .action-btn, .quick-btn {
+        font-size: 0.75rem;
+        padding: 8px;
+    }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    .game-interface {
+        grid-template-columns: 200px 1fr 200px;
+    }
+    
+    .left-panel, .right-panel {
+        max-height: calc(100vh - 80px);
+    }
+    
+    .terminal-container {
+        min-height: 200px;
+    }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .terminal-screen {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 /* Utility Classes */

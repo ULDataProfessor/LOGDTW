@@ -10,7 +10,7 @@ import json
 import time
 from copy import deepcopy
 from datetime import datetime, timedelta
-from flask import Flask, session, request, jsonify, render_template, send_from_directory
+from flask import Flask, session, request, jsonify, render_template, send_from_directory, g
 from werkzeug.security import generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
 
@@ -84,6 +84,8 @@ from web.models import (
     get_or_create_player,
     cleanup_old_sessions,
     get_database_stats,
+    sync_database,
+    get_db_adapter_status,
     User,
     Player,
     InventoryItem,
@@ -109,8 +111,56 @@ except ImportError:
     CACHING_AVAILABLE = False
     print("Warning: Flask-Caching not available, using simple cache")
 
-# Initialize database
-init_database(app)
+# Import performance monitoring
+try:
+    from web.performance_monitor import monitor_performance, get_performance_stats, performance_monitor
+    PERFORMANCE_MONITORING_AVAILABLE = True
+except ImportError:
+    PERFORMANCE_MONITORING_AVAILABLE = False
+    print("Warning: Performance monitoring not available")
+    
+    # Create dummy decorator if not available
+    def monitor_performance(f):
+        return f
+
+# Import security utilities
+try:
+    from web.security import (
+        rate_limit,
+        require_csrf,
+        add_security_headers,
+        get_csrf_token,
+        rate_limiter,
+        csrf_protection
+    )
+    SECURITY_AVAILABLE = True
+except ImportError:
+    SECURITY_AVAILABLE = False
+    print("Warning: Security utilities not available")
+    
+    # Create dummy decorators if not available
+    def rate_limit(*args, **kwargs):
+        def decorator(f):
+            return f
+        return decorator
+    
+    def require_csrf(f):
+        return f
+    
+    def add_security_headers(response):
+        return response
+    
+    def get_csrf_token(session_id):
+        return ""
+
+# Initialize database with local fallback support
+init_database(app, enable_local_fallback=True)
+
+# Add security headers to all responses
+if SECURITY_AVAILABLE:
+    @app.after_request
+    def security_headers(response):
+        return add_security_headers(response)
 
 # Global game systems (initialized on first use)
 game_systems = {
@@ -156,6 +206,14 @@ def get_session_id() -> str:
     """Get or create session ID"""
     if "session_id" not in session:
         session["session_id"] = f"web_{int(time.time())}_{os.urandom(8).hex()}"
+    
+    # Store in Flask g for use in decorators
+    g.session_id = session["session_id"]
+    
+    # Generate CSRF token if security is available
+    if SECURITY_AVAILABLE and "csrf_token" not in session:
+        session["csrf_token"] = get_csrf_token(session["session_id"])
+    
     return session["session_id"]
 
 
@@ -521,6 +579,7 @@ def api_diplomacy():
 
 
 @app.route("/api/session", methods=["POST"])
+@rate_limit(max_requests=10, window_seconds=60)  # Limit session creation
 def create_session():
     """Establish a session for the web client and return a token."""
     sid = get_session_id()
@@ -528,7 +587,14 @@ def create_session():
         cleanup_old_sessions(hours=24)
     except Exception:
         pass
-    return jsonify(success=True, token=sid)
+    
+    response_data = {"success": True, "token": sid}
+    
+    # Include CSRF token in response if security is available
+    if SECURITY_AVAILABLE and "csrf_token" in session:
+        response_data["csrf_token"] = session["csrf_token"]
+    
+    return jsonify(response_data)
 
 
 # ============================================================================
@@ -613,6 +679,8 @@ def api_empire_status():
 
 
 @app.route("/api/status", methods=["GET"])
+@monitor_performance
+@rate_limit(max_requests=60, window_seconds=60)  # 60 status checks per minute
 def get_status():
     """Get current game status"""
     try:
@@ -679,6 +747,9 @@ def get_status():
 
 
 @app.route("/api/travel", methods=["POST"])
+@monitor_performance
+@rate_limit(max_requests=30, window_seconds=60)  # 30 requests per minute
+@require_csrf
 def travel():
     """Travel to a new sector"""
     player = get_current_player()
@@ -733,6 +804,9 @@ def travel():
 
 
 @app.route("/api/trade", methods=["POST"])
+@monitor_performance
+@rate_limit(max_requests=50, window_seconds=60)  # 50 requests per minute
+@require_csrf
 def trade():
     """Execute a trade transaction"""
     player = get_current_player()
@@ -826,6 +900,7 @@ def trade():
 
 
 @app.route("/api/market", methods=["GET"])
+@monitor_performance
 def get_market():
     """Get current market prices"""
     player = get_current_player()
@@ -979,6 +1054,9 @@ def get_missions():
 
 
 @app.route("/api/save", methods=["POST"])
+@monitor_performance
+@rate_limit(max_requests=10, window_seconds=60)  # 10 saves per minute
+@require_csrf
 def save_game():
     """Save the current game state"""
     if not GAME_MODULES_AVAILABLE:
@@ -1374,6 +1452,103 @@ def debug_info():
             }
         )
     return jsonify(success=False, message="Debug endpoint not available"), 403
+
+
+@app.route("/api/performance/stats", methods=["GET"])
+def get_performance_stats_endpoint():
+    """Get performance statistics (admin/debug only)"""
+    if not app.debug and not PERFORMANCE_MONITORING_AVAILABLE:
+        return jsonify(success=False, message="Performance monitoring not available"), 403
+    
+    try:
+        time_window = int(request.args.get("window", 60))  # Default 60 minutes
+        stats = get_performance_stats(time_window)
+        return jsonify(success=True, stats=stats)
+    except Exception as e:
+        return jsonify(success=False, message=str(e)), 500
+
+
+@app.route("/api/db/status", methods=["GET"])
+def db_status():
+    """Get database connection and sync status"""
+    status = get_db_adapter_status()
+    if status is None:
+        return jsonify(
+            success=False,
+            message="Database adapter not initialized",
+            local_mode=False
+        )
+    
+    return jsonify(
+        success=True,
+        **status
+    )
+
+
+@app.route("/api/db/sync", methods=["POST"])
+def db_sync():
+    """Manually trigger database sync from local to primary"""
+    result = sync_database()
+    return jsonify(**result)
+
+
+@app.route("/api/db/check", methods=["GET"])
+def db_check():
+    """Check database connectivity"""
+    from sqlalchemy import text
+    try:
+        # Try a simple query
+        db.session.execute(text("SELECT 1"))
+        db.session.commit()
+        
+        # If we just reconnected, try to sync
+        status = get_db_adapter_status()
+        if status and status.get("primary_connected"):
+            # Try to sync in background (non-blocking)
+            try:
+                sync_result = sync_database()
+                if sync_result.get("synced", 0) > 0:
+                    return jsonify(
+                        success=True,
+                        connected=True,
+                        message="Database connection OK - synced pending changes",
+                        synced=sync_result.get("synced", 0)
+                    )
+            except Exception:
+                pass  # Don't fail if sync fails
+        
+        return jsonify(
+            success=True,
+            connected=True,
+            message="Database connection OK"
+        )
+    except Exception as e:
+        status = get_db_adapter_status()
+        return jsonify(
+            success=False,
+            connected=False,
+            message=f"Database connection failed: {str(e)}",
+            local_mode=status.get("local_mode", False) if status else False,
+            adapter_status=status
+        ), 503
+
+
+# Background task for periodic sync (runs on first request after connection check)
+@app.before_request
+def auto_sync_on_reconnect():
+    """Automatically sync when connection is restored"""
+    try:
+        status = get_db_adapter_status()
+        if status and status.get("primary_connected") and status.get("sync_queue", {}).get("pending_sync", 0) > 0:
+            # Only sync once per request cycle to avoid performance issues
+            if not hasattr(g, "_sync_attempted"):
+                g._sync_attempted = True
+                try:
+                    sync_database()
+                except Exception:
+                    pass  # Don't fail requests if sync fails
+    except Exception:
+        pass  # Don't fail requests if status check fails
 
 
 if __name__ == "__main__":

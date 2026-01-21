@@ -557,6 +557,8 @@ class UIManager {
         if (this.updatePending) return;
         this.updatePending = true;
         
+        const renderStart = performance.now();
+        
         requestAnimationFrame(() => {
             const player = window.game.player;
             
@@ -590,6 +592,12 @@ class UIManager {
             
             // Update turn counter
             this.updateElementIfChanged('turn-counter', window.game.world?.turn_counter || 0);
+            
+            // Track render performance
+            const renderDuration = performance.now() - renderStart;
+            if (this.performanceTracker) {
+                this.performanceTracker.recordRenderTime('updatePlayerDisplay', renderDuration);
+            }
             
             this.updatePending = false;
         });
@@ -857,6 +865,13 @@ class UIManager {
         return text.replace(/[&<>"']/g, m => map[m]);
     }
     
+    getPerformanceStats() {
+        if (this.performanceTracker) {
+            return this.performanceTracker.getStats();
+        }
+        return null;
+    }
+    
     update() {
         // Regular UI updates can go here
         // For example, updating timestamps, checking connection, etc.
@@ -989,6 +1004,8 @@ class GameEngine {
 
     ensureSession() {
         this.token = localStorage.getItem('session_token');
+        this.csrfToken = localStorage.getItem('csrf_token');
+        
         if (this.token) {
             this.loadGameState();
         } else {
@@ -997,6 +1014,13 @@ class GameEngine {
                 .then(data => {
                     this.token = data.token;
                     localStorage.setItem('session_token', this.token);
+                    
+                    // Store CSRF token if provided
+                    if (data.csrf_token) {
+                        this.csrfToken = data.csrf_token;
+                        localStorage.setItem('csrf_token', this.csrfToken);
+                    }
+                    
                     this.loadGameState();
                 })
                 .catch(err => {
@@ -1091,22 +1115,46 @@ class GameEngine {
     }
     
     executeCommand() {
-        const input = document.getElementById('terminal-command');
-        const command = input.value.trim();
-        
-        if (command) {
-            this.terminal.addLine('CAPTAIN', command, 'command');
-            this.terminal.addCommand(command);
-            this.processCommand(command);
-            input.value = '';
+        try {
+            const input = document.getElementById('terminal-command');
+            if (!input) {
+                throw new Error('Terminal input element not found');
+            }
+            
+            const command = input.value.trim();
+            
+            if (command) {
+                if (!this.terminal) {
+                    throw new Error('Terminal manager not initialized');
+                }
+                
+                this.terminal.addLine('CAPTAIN', command, 'command');
+                this.terminal.addCommand(command);
+                this.processCommand(command);
+                input.value = '';
+            }
+        } catch (error) {
+            console.error('Error executing command:', error);
+            if (this.terminal) {
+                this.terminal.addLine('ERROR', `Failed to execute command: ${error.message}`, 'error');
+            }
         }
     }
     
     processCommand(command) {
-        const args = command.toLowerCase().split(' ');
-        const cmd = args[0];
-        
-        switch (cmd) {
+        try {
+            if (!command || typeof command !== 'string') {
+                throw new Error('Invalid command');
+            }
+            
+            const args = command.toLowerCase().split(' ');
+            const cmd = args[0];
+            
+            if (!cmd) {
+                throw new Error('Empty command');
+            }
+            
+            switch (cmd) {
             case 'help':
             case '?':
                 this.showHelp();
@@ -1267,6 +1315,12 @@ class GameEngine {
             default:
                 this.terminal.addLine('ERROR', `Unknown command: "${cmd}"`, 'error');
                 this.suggestCommand(cmd);
+            }
+        } catch (error) {
+            console.error('Error processing command:', error);
+            if (this.terminal) {
+                this.terminal.addLine('ERROR', `Command error: ${error.message}`, 'error');
+            }
         }
     }
     
@@ -1821,19 +1875,57 @@ class GameEngine {
             method,
             headers: { 'Content-Type': 'application/json' }
         };
+        
+        // Add CSRF token to headers for non-GET requests
+        if (method !== 'GET' && this.csrfToken) {
+            options.headers['X-CSRF-Token'] = this.csrfToken;
+        }
+        
         if (method !== 'GET') {
             options.body = JSON.stringify(data);
         }
 
-        return fetch(`${apiBase}/${endpoint}`, options)
+        // Track performance
+        const startTime = performance.now();
+        const fullEndpoint = `${apiBase}/${endpoint}`;
+
+        return fetch(fullEndpoint, options)
             .then(response => {
+                const duration = performance.now() - startTime;
+                const success = response.ok;
+                const statusCode = response.status;
+                
+                // Record API call performance
+                if (this.ui && this.ui.performanceTracker) {
+                    this.ui.performanceTracker.recordAPICall(
+                        fullEndpoint,
+                        method,
+                        duration,
+                        success,
+                        statusCode
+                    );
+                }
+                
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 return response.json();
             })
             .catch(error => {
+                const duration = performance.now() - startTime;
                 console.error('Request failed:', error);
+                
+                // Record failed API call
+                if (this.ui && this.ui.performanceTracker) {
+                    this.ui.performanceTracker.recordAPICall(
+                        fullEndpoint,
+                        method,
+                        duration,
+                        false,
+                        0
+                    );
+                }
+                
                 this.updateConnectionStatus(false);
                 throw error;
             });
