@@ -1,0 +1,203 @@
+"""Campaign missions data for LOGDTW2002
+
+This file contains all campaign mission definitions. Campaign missions are story-driven
+missions that progress through acts and can have prerequisites. To add new campaign
+missions, add them to the CAMPAIGN_MISSIONS list below.
+"""
+
+from typing import List
+from game.story_types import CampaignMission
+
+
+# Comprehensive campaign missions with story progression
+CAMPAIGN_MISSIONS: List[CampaignMission] = [
+    # Act I: Discovery
+    CampaignMission(
+        title="The Signal",
+        description="A mysterious signal has been detected from deep space. Investigate its origin and determine if it poses a threat.",
+        faction="Federation",
+        reward=5000,
+        mission_id="campaign_001",
+        story_text="The Federation has detected an anomalous signal originating from Sector 12, an unexplored region. The signal pattern suggests artificial origin, but no known civilization should be capable of such transmission. You've been assigned to investigate.",
+        objectives=["Travel to Sector 12", "Scan for signal source", "Report findings to Federation"],
+    ),
+    CampaignMission(
+        title="First Contact",
+        description="Make contact with the alien species that sent the signal. Diplomatic success could change everything.",
+        faction="Federation",
+        reward=8000,
+        mission_id="campaign_002",
+        prerequisites=["campaign_001"],
+        story_text="Your investigation revealed the signal's source: an alien vessel of unknown design. The Federation wants you to establish peaceful contact. This could be humanity's first encounter with intelligent alien life.",
+        objectives=["Locate alien vessel", "Establish communication", "Negotiate peaceful contact"],
+    ),
+    CampaignMission(
+        title="The Artifact",
+        description="The aliens have given you coordinates to an ancient artifact. Retrieve it before others discover its location.",
+        faction="Federation",
+        reward=10000,
+        mission_id="campaign_003",
+        prerequisites=["campaign_002"],
+        story_text="The alien envoy revealed the location of an ancient artifact that predates both human and alien civilizations. This discovery could unlock secrets about the Genesis Torpedo and the true nature of the galaxy.",
+        objectives=["Travel to artifact location", "Retrieve artifact", "Return to Federation base"],
+    ),
+    # Act II: Conflict
+    CampaignMission(
+        title="Pirate Interception",
+        description="Pirates have learned of the artifact and plan to steal it. Intercept their forces before they reach the artifact site.",
+        faction="Federation",
+        reward=12000,
+        mission_id="campaign_004",
+        prerequisites=["campaign_003"],
+        story_text="Intelligence reports indicate a pirate fleet is en route to intercept the artifact. You must reach it first or prevent the pirates from acquiring it. The artifact's power in the wrong hands could be catastrophic.",
+        objectives=["Intercept pirate fleet", "Defend artifact location", "Eliminate pirate threat"],
+    ),
+    CampaignMission(
+        title="The Betrayal",
+        description="A Federation official has been working with the pirates. Expose the traitor and prevent classified information from leaking.",
+        faction="Federation",
+        reward=15000,
+        mission_id="campaign_005",
+        prerequisites=["campaign_004"],
+        story_text="Evidence suggests someone within the Federation has been feeding information to the pirates. You must identify the traitor and prevent further leaks. Trust no one.",
+        objectives=["Investigate Federation officials", "Gather evidence", "Expose the traitor"],
+    ),
+    CampaignMission(
+        title="Genesis Protocol",
+        description="The artifact contains information about the Genesis Torpedo's true purpose. Decode it before hostile forces do.",
+        faction="Scientists",
+        reward=18000,
+        mission_id="campaign_006",
+        prerequisites=["campaign_003"],
+        story_text="The artifact's data reveals the Genesis Torpedo was never meant to create worlds—it was designed to destroy them. The ancient civilization that created it used it to reshape entire star systems. This knowledge must be protected.",
+        objectives=["Decode artifact data", "Secure Genesis Torpedo information", "Prevent data leak"],
+    ),
+    # Act III: Resolution
+    CampaignMission(
+        title="The Void Awakens",
+        description="Something ancient and powerful has awakened in the void. All factions must work together to face this threat.",
+        faction="Neutral",
+        reward=25000,
+        mission_id="campaign_007",
+        prerequisites=["campaign_006"],
+        story_text="The artifact's activation has awakened something in the void—an entity that predates all known civilizations. Federation, Pirates, Scientists, and Traders must set aside their differences or face extinction.",
+        objectives=["Unite all factions", "Face the void entity", "Determine the galaxy's fate"],
+    ),
+    CampaignMission(
+        title="New Beginning",
+        description="The crisis has passed, but the galaxy will never be the same. Your choices have shaped the future.",
+        faction="Neutral",
+        reward=30000,
+        mission_id="campaign_008",
+        prerequisites=["campaign_007"],
+        story_text="The void entity has been dealt with, but at great cost. The galaxy's political landscape has shifted. Your actions have determined whether peace, chaos, or something entirely new will emerge.",
+        objectives=["Survey the aftermath", "Help rebuild", "Shape the new order"],
+    ),
+    # Faction-Specific Campaigns
+    CampaignMission(
+        title="Black Market Empire",
+        description="Build a smuggling network that spans the galaxy. Control the flow of illegal goods and information.",
+        faction="Pirates",
+        reward=20000,
+        mission_id="pirate_campaign_001",
+        story_text="The key to pirate power isn't just raiding—it's controlling the black market. Establish routes, eliminate competition, and become the shadow that controls the galaxy's underworld.",
+        objectives=["Establish smuggling routes", "Eliminate rivals", "Control black market"],
+    ),
+    CampaignMission(
+        title="Scientific Breakthrough",
+        description="Lead a research expedition to unlock the secrets of Genesis Torpedo technology and beyond.",
+        faction="Scientists",
+        reward=22000,
+        mission_id="scientist_campaign_001",
+        story_text="The Genesis Torpedo represents only the beginning. Ancient alien technology suggests far greater possibilities. Lead the expedition that will change humanity's understanding of the universe.",
+        objectives=["Research Genesis Torpedo", "Discover new technologies", "Publish groundbreaking findings"],
+    ),
+    CampaignMission(
+        title="Trade Dominance",
+        description="Establish economic control over key sectors through strategic trading and market manipulation.",
+        faction="Traders",
+        reward=20000,
+        mission_id="trader_campaign_001",
+        story_text="Wealth is power, and control of trade routes is the path to both. Build an economic empire that makes you indispensable to every faction in the galaxy.",
+        objectives=["Control trade routes", "Manipulate markets", "Build economic empire"],
+    ),
+    # Additional Campaign Missions
+    CampaignMission(
+        title="The Lost Colony",
+        description="Discover a lost human colony that disappeared centuries ago. What happened to them?",
+        faction="Explorers",
+        reward=15000,
+        mission_id="explorer_campaign_001",
+        story_text="Ancient records mention a colony ship that vanished two hundred years ago. Recent sensor readings suggest something survived. This could be the greatest discovery in exploration history—or the most dangerous.",
+        objectives=["Locate colony ship", "Investigate what happened", "Rescue survivors if any"],
+    ),
+    CampaignMission(
+        title="The Phantom Fleet",
+        description="Reports of ghost ships appearing and disappearing have been increasing. Investigate these mysterious vessels.",
+        faction="Federation",
+        reward=18000,
+        mission_id="campaign_009",
+        prerequisites=["campaign_005"],
+        story_text="Multiple ships have reported seeing a fleet of vessels that shouldn't exist—ships from the Great War, long since destroyed. Are these hallucinations, time anomalies, or something more sinister?",
+        objectives=["Investigate phantom fleet sightings", "Determine their origin", "Prevent potential threat"],
+    ),
+    CampaignMission(
+        title="The Price of Freedom",
+        description="A colony has declared independence from the Federation. Support their cause or crush the rebellion.",
+        faction="Rebels",
+        reward=22000,
+        mission_id="rebel_campaign_001",
+        story_text="The colony of New Hope has declared independence, citing Federation oppression. The Federation has sent a fleet to 'restore order.' You must choose: help the rebels achieve freedom, or ensure Federation control.",
+        objectives=["Support rebel cause", "Defend colony from Federation", "Establish independent government"],
+    ),
+    CampaignMission(
+        title="The Arena Champion",
+        description="Compete in the galaxy's most prestigious combat arena. Victory brings fame, fortune, and powerful allies.",
+        faction="Mercenaries",
+        reward=25000,
+        mission_id="mercenary_campaign_001",
+        story_text="The Grand Arena hosts the galaxy's deadliest fighters. Winning the championship brings not just glory, but connections to the most powerful factions. Many have died trying. Will you be the next champion?",
+        objectives=["Enter the arena", "Defeat all opponents", "Win the championship"],
+    ),
+    CampaignMission(
+        title="The Ancient Library",
+        description="Discover a repository of knowledge from the ancient civilization. The secrets within could change everything.",
+        faction="Scientists",
+        reward=30000,
+        mission_id="scientist_campaign_002",
+        prerequisites=["scientist_campaign_001"],
+        story_text="The artifact led to coordinates of an ancient library—a repository of knowledge from the civilization that created the Genesis Torpedo. The information within could unlock technologies beyond imagination, but accessing it requires solving puzzles that have stumped researchers for decades.",
+        objectives=["Locate the library", "Solve the puzzles", "Access the knowledge"],
+    ),
+    CampaignMission(
+        title="The Shadow War",
+        description="Uncover a secret war being fought in the shadows between Federation Intelligence and unknown enemies.",
+        faction="Neutral",
+        reward=28000,
+        mission_id="campaign_010",
+        prerequisites=["campaign_005"],
+        story_text="Evidence suggests Federation Intelligence is fighting a war no one knows about. Their enemies are unknown, their methods are extreme, and the stakes are higher than anyone realizes. You've stumbled into something that could get you killed—or save the galaxy.",
+        objectives=["Investigate shadow war", "Identify the enemies", "Determine the stakes"],
+    ),
+    CampaignMission(
+        title="The Void Gate",
+        description="A gateway has been discovered in the void. Where does it lead? Who built it?",
+        faction="Explorers",
+        reward=35000,
+        mission_id="explorer_campaign_002",
+        prerequisites=["explorer_campaign_001"],
+        story_text="Deep in the void, explorers have found a massive gateway—a structure that defies all known physics. It appears to be a portal to somewhere else, but where? And more importantly, who built it? The answers could rewrite everything we know about the universe.",
+        objectives=["Reach the void gate", "Study its structure", "Determine its purpose"],
+    ),
+    CampaignMission(
+        title="The Last Stand",
+        description="An ancient enemy has returned. All factions must unite or face extinction.",
+        faction="Neutral",
+        reward=50000,
+        mission_id="campaign_011",
+        prerequisites=["campaign_010", "campaign_007"],
+        story_text="The shadow war was just the beginning. The ancient enemy that destroyed the civilization that created the Genesis Torpedo has returned. They've been waiting, preparing. Now they're here, and they want to finish what they started. The galaxy must unite or die.",
+        objectives=["Unite all factions", "Prepare for battle", "Face the ancient enemy"],
+    ),
+]
+

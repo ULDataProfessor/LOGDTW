@@ -1,21 +1,25 @@
-/* Terminal Styles for LOGDTW2002 Web Edition */
+/* Terminal Styles for LOGDTW2002 Web Edition - 80s Retro Style */
 
 .terminal-container {
-    background: linear-gradient(145deg, var(--terminal-bg), #000012);
-    border: var(--border-width) solid var(--accent-text);
-    border-radius: var(--border-radius);
+    background: linear-gradient(145deg, #000000, #001100);
+    border: 3px double var(--accent-text);
+    border-radius: 0;
     overflow: hidden;
     box-shadow: 
         var(--shadow-lg),
-        0 0 30px rgba(100, 255, 218, 0.4),
-        inset 0 0 50px rgba(100, 255, 218, 0.05);
+        0 0 30px rgba(0, 255, 255, 0.6),
+        inset 0 0 50px rgba(0, 255, 0, 0.1),
+        inset 0 0 100px rgba(0, 255, 255, 0.05);
     margin-bottom: var(--spacing-lg);
     min-height: 450px;
     display: flex;
     flex-direction: column;
     position: relative;
+    /* CRT screen effect */
+    filter: contrast(1.1) brightness(0.95);
 }
 
+/* CRT Scanlines for Terminal */
 .terminal-container::before {
     content: '';
     position: absolute;
@@ -27,11 +31,36 @@
         repeating-linear-gradient(
             0deg,
             transparent 0px,
-            rgba(100, 255, 218, 0.02) 1px,
+            rgba(0, 255, 0, 0.03) 1px,
             transparent 2px
         );
     pointer-events: none;
     z-index: 1;
+    animation: scanline 8s linear infinite;
+}
+
+/* CRT Phosphor Glow Effect */
+.terminal-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        rgba(0, 255, 0, 0.05) 50%,
+        transparent 100%
+    );
+    pointer-events: none;
+    z-index: 2;
+    animation: phosphorGlow 3s ease-in-out infinite;
+}
+
+@keyframes phosphorGlow {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
 }
 
 .terminal-header {
@@ -79,14 +108,44 @@
 .terminal-screen {
     flex: 1;
     padding: var(--spacing-md);
-    background: var(--terminal-bg);
-    color: var(--accent-text);
-    font-family: var(--font-mono);
+    background: #000000;
+    /* 80s Green Terminal Color */
+    color: #00ff00;
+    font-family: 'Courier New', 'Monaco', 'Consolas', monospace;
     font-size: 0.9rem;
     line-height: 1.6;
     overflow-y: auto;
     max-height: 300px;
     position: relative;
+    /* CRT Text Glow */
+    text-shadow: 
+        0 0 5px rgba(0, 255, 0, 0.5),
+        0 0 10px rgba(0, 255, 0, 0.3);
+    /* Subtle screen flicker */
+    animation: screenFlicker 10s ease-in-out infinite;
+}
+
+@keyframes screenFlicker {
+    0%, 100% { opacity: 1; }
+    98% { opacity: 1; }
+    99% { opacity: 0.98; }
+}
+
+/* Amber Terminal Variant */
+.terminal-screen.amber {
+    color: #ffb000;
+    text-shadow: 
+        0 0 5px rgba(255, 176, 0, 0.5),
+        0 0 10px rgba(255, 176, 0, 0.3);
+}
+
+.terminal-screen.amber::after {
+    background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        rgba(255, 176, 0, 0.05) 50%,
+        transparent 100%
+    );
 }
 
 .terminal-screen::before {
@@ -101,8 +160,8 @@
             0deg,
             transparent,
             transparent 2px,
-            rgba(100, 255, 218, 0.03) 2px,
-            rgba(100, 255, 218, 0.03) 4px
+            rgba(0, 255, 0, 0.05) 2px,
+            rgba(0, 255, 0, 0.05) 4px
         );
     pointer-events: none;
     z-index: 1;
@@ -117,27 +176,49 @@
 }
 
 .terminal-line.error {
-    color: var(--danger-text);
+    color: #ff0066;
+    text-shadow: 
+        0 0 5px rgba(255, 0, 102, 0.8),
+        0 0 10px rgba(255, 0, 102, 0.5);
+    animation: glitch 0.3s ease-in-out;
 }
 
 .terminal-line.warning {
-    color: var(--warning-text);
+    color: #ffaa00;
+    text-shadow: 
+        0 0 5px rgba(255, 170, 0, 0.8),
+        0 0 10px rgba(255, 170, 0, 0.5);
 }
 
 .terminal-line.success {
-    color: var(--success-text);
+    color: #00ff88;
+    text-shadow: 
+        0 0 5px rgba(0, 255, 136, 0.8),
+        0 0 10px rgba(0, 255, 136, 0.5);
 }
 
 .terminal-line.info {
-    color: var(--energy-color);
+    color: #00aaff;
+    text-shadow: 
+        0 0 5px rgba(0, 170, 255, 0.8),
+        0 0 10px rgba(0, 170, 255, 0.5);
 }
 
 .prompt {
-    color: var(--accent-text);
+    color: #00ff00;
     margin-right: var(--spacing-sm);
     font-weight: 600;
     flex-shrink: 0;
-    text-shadow: 0 0 5px var(--glow-color);
+    text-shadow: 
+        0 0 5px rgba(0, 255, 0, 0.8),
+        0 0 10px rgba(0, 255, 0, 0.5);
+    font-family: 'Courier New', monospace;
+}
+
+/* Retro C:\> style prompt */
+.prompt.retro::before {
+    content: 'C:\\>';
+    color: #00ff00;
 }
 
 .terminal-text {
@@ -195,18 +276,35 @@
     transform: scale(1.05);
 }
 
-/* Terminal Effects */
+/* Terminal Effects - 80s Retro Cursor */
 .cursor {
     display: inline-block;
     width: 8px;
     height: 1.2em;
-    background: var(--accent-text);
+    background: #00ff00;
+    box-shadow: 
+        0 0 5px rgba(0, 255, 0, 0.8),
+        0 0 10px rgba(0, 255, 0, 0.5);
     animation: blink 1s infinite;
+}
+
+.cursor.amber {
+    background: #ffb000;
+    box-shadow: 
+        0 0 5px rgba(255, 176, 0, 0.8),
+        0 0 10px rgba(255, 176, 0, 0.5);
+}
+
+/* Block-style retro cursor */
+.cursor.block {
+    width: 12px;
+    border: 1px solid #00ff00;
+    background: rgba(0, 255, 0, 0.3);
 }
 
 @keyframes blink {
     0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+    51%, 100% { opacity: 0.3; }
 }
 
 .typing-effect {
@@ -431,16 +529,67 @@
     100% { top: 100%; opacity: 0; }
 }
 
-/* Responsive Terminal */
+/* 8-bit Style Progress Bars */
+.terminal-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff00, #00cccc);
+    transition: width 0.5s ease;
+    position: relative;
+    /* Pixelated effect */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+.terminal-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 8px,
+        rgba(0, 255, 0, 0.3) 8px,
+        rgba(0, 255, 0, 0.3) 16px
+    );
+    animation: progress-stripe 1s linear infinite;
+}
+
+/* Retro-style ASCII Art */
+.ascii-art {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    line-height: 1;
+    color: #00ff00;
+    text-align: center;
+    margin: var(--spacing-md) 0;
+    white-space: pre;
+    overflow-x: auto;
+    text-shadow: 
+        0 0 5px rgba(0, 255, 0, 0.5),
+        0 0 10px rgba(0, 255, 0, 0.3);
+    /* Pixelated rendering */
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* Responsive Terminal - Enhanced for Mobile */
 @media (max-width: 768px) {
     .terminal-container {
         min-height: 300px;
+        border-width: 2px;
     }
     
     .terminal-screen {
         font-size: 0.8rem;
         padding: var(--spacing-sm);
         max-height: 250px;
+        /* Reduce glow on mobile for performance */
+        text-shadow: 0 0 3px rgba(0, 255, 0, 0.5);
     }
     
     .terminal-input {
@@ -449,6 +598,7 @@
     
     .terminal-input input {
         font-size: 0.8rem;
+        min-height: 44px; /* Touch-friendly */
     }
     
     .ascii-art {
@@ -462,5 +612,20 @@
     .terminal-table th,
     .terminal-table td {
         padding: var(--spacing-xs);
+    }
+}
+
+@media (max-width: 480px) {
+    .terminal-container {
+        min-height: 250px;
+    }
+    
+    .terminal-screen {
+        font-size: 0.75rem;
+        max-height: 200px;
+    }
+    
+    .terminal-input input {
+        font-size: 0.75rem;
     }
 }

@@ -344,9 +344,15 @@ sectors - All sectors  sector - Current sector
                             for event in result["events"]:
                                 if event["type"] == "combat":
                                     self.console.print("[red]Hostile encounter![/red]")
+                                    # Scale difficulty based on location danger
+                                    danger_level = current_location.danger_level if current_location else 5
+                                    difficulty_modifier = 1.0 + (danger_level - 5) * 0.15
                                     self.combat_system.start_combat(
-                                        self.player, event.get("enemy_type")
+                                        self.player, 
+                                        event.get("enemy_type"),
+                                        difficulty_modifier=difficulty_modifier
                                     )
+                                    self._show_combat_status()
                                 elif event["type"] == "item":
                                     names = ", ".join([item.name for item in event["items"]])
                                     self.console.print(
@@ -1380,12 +1386,94 @@ sectors - All sectors  sector - Current sector
 
     def handle_combat(self, command):
         """Handle combat commands"""
-        if not self.world.is_in_combat():
+        if not self.combat_system.in_combat:
+            # Check if we should start combat based on location danger
+            current_location = self.world.get_current_location()
+            if current_location and hasattr(current_location, 'danger_level') and current_location.danger_level >= 5:
+                # Random chance for combat in dangerous areas
+                if random.random() < 0.3:
+                    # Scale difficulty based on sector and danger level
+                    difficulty_modifier = 1.0 + (current_location.danger_level - 5) * 0.2
+                    self.combat_system.start_combat(self.player, difficulty_modifier=difficulty_modifier)
+                    self.console.print("[red]Hostile encounter![/red]")
+                    self._show_combat_status()
+                    return
             self.console.print("[red]There's nothing to attack here.[/red]")
             return
 
-        # Combat logic would go here
-        self.console.print("[yellow]Combat system not yet implemented.[/yellow]")
+        # Parse combat command
+        parts = command.lower().split()
+        action = parts[0] if parts else "status"
+
+        if action == "attack" or action == "a":
+            result = self.combat_system.player_attack()
+            self.console.print(result["message"])
+            if result.get("enemy_attack"):
+                self.console.print(result["enemy_attack"]["message"])
+            if result.get("enemy_defeated"):
+                self.console.print("[green]Victory![/green]")
+            elif result.get("player_defeated"):
+                self.console.print("[red]You have been defeated![/red]")
+            else:
+                self._show_combat_status()
+                
+        elif action == "defend" or action == "d":
+            result = self.combat_system.player_defend()
+            self.console.print(result["message"])
+            if result.get("enemy_attack"):
+                self.console.print(result["enemy_attack"]["message"])
+            if result.get("player_defeated"):
+                self.console.print("[red]You have been defeated![/red]")
+            else:
+                self._show_combat_status()
+                
+        elif action == "flee" or action == "run":
+            result = self.combat_system.player_flee()
+            self.console.print(result["message"])
+            if result["success"]:
+                self.console.print("[yellow]You escaped from combat.[/yellow]")
+            else:
+                self._show_combat_status()
+                
+        elif action.startswith("use "):
+            item_name = " ".join(parts[1:])
+            result = self.combat_system.use_item(item_name)
+            self.console.print(result["message"])
+            if not result.get("player_defeated"):
+                self._show_combat_status()
+                
+        elif action == "status" or action == "s":
+            self._show_combat_status()
+            
+        else:
+            self.console.print("[yellow]Combat commands: attack, defend, flee, use [item], status[/yellow]")
+            self._show_combat_status()
+    
+    def _show_combat_status(self):
+        """Display current combat status"""
+        status = self.combat_system.get_combat_status()
+        if not status["in_combat"]:
+            return
+            
+        enemy = status["enemy"]
+        player = status["player"]
+        
+        self.console.print("\n[bold red]=== COMBAT ===[/bold red]")
+        self.console.print(f"[bold yellow]Round {status['round']}[/bold yellow]")
+        self.console.print(f"\n[cyan]Enemy: {enemy['name']}[/cyan]")
+        self.console.print(f"  Health: {enemy['health']}/{enemy['max_health']}")
+        self.console.print(f"  {enemy['description']}")
+        self.console.print(f"\n[green]Your Status:[/green]")
+        self.console.print(f"  Health: {player['health']}/{player['max_health']}")
+        self.console.print(f"  Energy: {player['energy']}/{player['max_energy']}")
+        
+        if status["log"]:
+            self.console.print("\n[dim]Recent actions:[/dim]")
+            for log_entry in status["log"][-3:]:
+                self.console.print(f"  {log_entry}")
+        
+        actions = self.combat_system.get_available_actions()
+        self.console.print(f"\n[bold]Available actions:[/bold] {', '.join(actions[:5])}")
 
     def handle_counselor_interaction(self):
         """Handle interactions with the ship counselor AI"""

@@ -39,8 +39,9 @@ class CombatSystem:
         self.combat_round = 0
         self.combat_log = []
 
-        # Enemy templates
+        # Enemy templates - expanded with more variety and difficulty scaling
         self.enemy_templates = {
+            # Low-level enemies (levels 1-5)
             "space_pirate": {
                 "name": "Space Pirate",
                 "health": 50,
@@ -50,16 +51,7 @@ class CombatSystem:
                 "description": "A ruthless space pirate with a laser rifle.",
                 "experience_reward": 25,
                 "credits_reward": 50,
-            },
-            "alien_raider": {
-                "name": "Alien Raider",
-                "health": 75,
-                "damage": 20,
-                "defense": 8,
-                "enemy_type": "alien",
-                "description": "A mysterious alien with advanced weaponry.",
-                "experience_reward": 40,
-                "credits_reward": 100,
+                "difficulty_level": 1,
             },
             "security_drone": {
                 "name": "Security Drone",
@@ -70,6 +62,30 @@ class CombatSystem:
                 "description": "An automated security system.",
                 "experience_reward": 15,
                 "credits_reward": 25,
+                "difficulty_level": 1,
+            },
+            "rogue_trader": {
+                "name": "Rogue Trader",
+                "health": 45,
+                "damage": 18,
+                "defense": 6,
+                "enemy_type": "pirate",
+                "description": "A disreputable trader with illegal weapons.",
+                "experience_reward": 30,
+                "credits_reward": 75,
+                "difficulty_level": 2,
+            },
+            # Mid-level enemies (levels 5-10)
+            "alien_raider": {
+                "name": "Alien Raider",
+                "health": 75,
+                "damage": 20,
+                "defense": 8,
+                "enemy_type": "alien",
+                "description": "A mysterious alien with advanced weaponry.",
+                "experience_reward": 40,
+                "credits_reward": 100,
+                "difficulty_level": 3,
             },
             "space_slug": {
                 "name": "Space Slug",
@@ -80,11 +96,107 @@ class CombatSystem:
                 "description": "A massive space-dwelling creature.",
                 "experience_reward": 60,
                 "credits_reward": 150,
+                "difficulty_level": 3,
+            },
+            "federation_patrol": {
+                "name": "Federation Patrol",
+                "health": 90,
+                "damage": 22,
+                "defense": 10,
+                "enemy_type": "military",
+                "description": "A Federation patrol ship that mistakes you for a threat.",
+                "experience_reward": 50,
+                "credits_reward": 120,
+                "difficulty_level": 4,
+            },
+            "pirate_captain": {
+                "name": "Pirate Captain",
+                "health": 120,
+                "damage": 25,
+                "defense": 12,
+                "enemy_type": "pirate",
+                "description": "A notorious pirate captain with upgraded weapons.",
+                "experience_reward": 75,
+                "credits_reward": 200,
+                "difficulty_level": 5,
+            },
+            "alien_scout": {
+                "name": "Alien Scout",
+                "health": 65,
+                "damage": 24,
+                "defense": 7,
+                "enemy_type": "alien",
+                "description": "A fast alien scout ship with advanced sensors.",
+                "experience_reward": 55,
+                "credits_reward": 140,
+                "difficulty_level": 4,
+            },
+            # High-level enemies (levels 10+)
+            "bounty_hunter": {
+                "name": "Bounty Hunter",
+                "health": 150,
+                "damage": 30,
+                "defense": 15,
+                "enemy_type": "mercenary",
+                "description": "A professional bounty hunter with top-tier equipment.",
+                "experience_reward": 100,
+                "credits_reward": 300,
+                "difficulty_level": 6,
+            },
+            "alien_cruiser": {
+                "name": "Alien Cruiser",
+                "health": 200,
+                "damage": 28,
+                "defense": 18,
+                "enemy_type": "alien",
+                "description": "A massive alien warship with devastating firepower.",
+                "experience_reward": 150,
+                "credits_reward": 400,
+                "difficulty_level": 7,
+            },
+            "space_kraken": {
+                "name": "Space Kraken",
+                "health": 250,
+                "damage": 20,
+                "defense": 20,
+                "enemy_type": "creature",
+                "description": "A legendary space-dwelling leviathan.",
+                "experience_reward": 200,
+                "credits_reward": 500,
+                "difficulty_level": 8,
+            },
+            "rogue_ai": {
+                "name": "Rogue AI Ship",
+                "health": 180,
+                "damage": 35,
+                "defense": 16,
+                "enemy_type": "robot",
+                "description": "An autonomous AI-controlled warship gone rogue.",
+                "experience_reward": 175,
+                "credits_reward": 450,
+                "difficulty_level": 8,
+            },
+            "federation_destroyer": {
+                "name": "Federation Destroyer",
+                "health": 220,
+                "damage": 32,
+                "defense": 20,
+                "enemy_type": "military",
+                "description": "A heavily armed Federation destroyer.",
+                "experience_reward": 180,
+                "credits_reward": 500,
+                "difficulty_level": 9,
             },
         }
 
-    def start_combat(self, player: Player, enemy_type: str = None) -> bool:
-        """Start a combat encounter"""
+    def start_combat(self, player: Player, enemy_type: str = None, difficulty_modifier: float = 1.0) -> bool:
+        """Start a combat encounter
+        
+        Args:
+            player: The player character
+            enemy_type: Specific enemy type to spawn, or None for random
+            difficulty_modifier: Multiplier for enemy stats based on player level/sector
+        """
         if self.in_combat:
             return False
 
@@ -93,25 +205,63 @@ class CombatSystem:
         self.combat_round = 0
         self.combat_log = []
 
-        # Create enemy
+        # Select enemy based on player level and difficulty
         if enemy_type is None:
-            enemy_type = random.choice(list(self.enemy_templates.keys()))
+            enemy_type = self._select_enemy_by_difficulty(player.level, difficulty_modifier)
 
         template = self.enemy_templates[enemy_type]
+        
+        # Scale enemy stats based on player level and difficulty modifier
+        level_scaling = 1.0 + (player.level - 1) * 0.1  # 10% per level above 1
+        total_scaling = level_scaling * difficulty_modifier
+        
+        scaled_health = int(template["health"] * total_scaling)
+        scaled_damage = int(template["damage"] * total_scaling)
+        scaled_defense = int(template["defense"] * total_scaling)
+        scaled_exp = int(template["experience_reward"] * total_scaling)
+        scaled_credits = int(template["credits_reward"] * total_scaling)
+        
         self.current_enemy = Enemy(
             name=template["name"],
-            health=template["health"],
-            max_health=template["health"],
-            damage=template["damage"],
-            defense=template["defense"],
+            health=scaled_health,
+            max_health=scaled_health,
+            damage=scaled_damage,
+            defense=scaled_defense,
             enemy_type=template["enemy_type"],
             description=template["description"],
-            experience_reward=template["experience_reward"],
-            credits_reward=template["credits_reward"],
+            experience_reward=scaled_exp,
+            credits_reward=scaled_credits,
         )
 
         self.combat_log.append(f"A {self.current_enemy.name} appears!")
+        self.combat_log.append(self.current_enemy.description)
         return True
+    
+    def _select_enemy_by_difficulty(self, player_level: int, difficulty_modifier: float) -> str:
+        """Select an appropriate enemy based on player level and difficulty"""
+        # Filter enemies by difficulty level
+        available_enemies = []
+        target_difficulty = min(9, max(1, int(player_level / 2) + int(difficulty_modifier * 2)))
+        
+        for enemy_key, template in self.enemy_templates.items():
+            enemy_difficulty = template.get("difficulty_level", 1)
+            # Allow enemies within 2 difficulty levels of target
+            if abs(enemy_difficulty - target_difficulty) <= 2:
+                available_enemies.append(enemy_key)
+        
+        # If no enemies match, use all enemies
+        if not available_enemies:
+            available_enemies = list(self.enemy_templates.keys())
+        
+        # Weight selection: prefer enemies closer to target difficulty
+        weights = []
+        for enemy_key in available_enemies:
+            enemy_difficulty = self.enemy_templates[enemy_key].get("difficulty_level", 1)
+            distance = abs(enemy_difficulty - target_difficulty)
+            weight = max(0.1, 1.0 - (distance * 0.2))  # Higher weight for closer difficulty
+            weights.append(weight)
+        
+        return random.choices(available_enemies, weights=weights)[0]
 
     def end_combat(self):
         """End the current combat"""
@@ -340,3 +490,35 @@ class CombatSystem:
                 actions.append(f"use {item.name}")
 
         return actions
+    
+    def get_combat_scenario(self) -> Dict:
+        """Generate a random combat scenario description"""
+        scenarios = [
+            {
+                "name": "Ambush",
+                "description": "You are ambushed! The enemy has the advantage.",
+                "enemy_initiative_bonus": 0.2,
+            },
+            {
+                "name": "Fair Fight",
+                "description": "Both combatants spot each other simultaneously.",
+                "enemy_initiative_bonus": 0.0,
+            },
+            {
+                "name": "You Have Advantage",
+                "description": "You catch the enemy by surprise!",
+                "enemy_initiative_bonus": -0.2,
+            },
+            {
+                "name": "Multiple Enemies",
+                "description": "You face multiple opponents!",
+                "enemy_initiative_bonus": 0.1,
+            },
+            {
+                "name": "Environmental Hazard",
+                "description": "Combat takes place in a dangerous environment!",
+                "enemy_initiative_bonus": 0.0,
+            },
+        ]
+        
+        return random.choice(scenarios)

@@ -9,6 +9,8 @@ from typing import Dict, List, Optional
 
 from game.player import Player
 from game.quests import QuestSystem
+from game.story_content import get_character_backstory
+from typing import Optional
 
 
 @dataclass
@@ -420,6 +422,13 @@ class NPCSystem:
     def get_npcs_at_location(self, location: str) -> List[NPC]:
         """Get all NPCs at a specific location"""
         return [npc for npc in self.npcs.values() if npc.location == location]
+
+    def get_npc_backstory(self, npc_name: str) -> Optional[str]:
+        """Get backstory for an NPC if available"""
+        backstory_data = get_character_backstory(npc_name)
+        if backstory_data:
+            return backstory_data.backstory
+        return None
 
     def start_conversation(
         self,

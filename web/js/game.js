@@ -440,7 +440,43 @@ class UIManager {
     constructor() {
         this.lastUpdate = 0;
         this.connectionStatus = 'online';
+        this.cachedElements = {}; // Cache frequently accessed DOM elements
+        this.updateQueue = []; // Queue for batched updates
+        this.updatePending = false; // Flag to prevent multiple simultaneous updates
         this.init();
+    }
+    
+    // Cache DOM elements for better performance
+    getElement(id) {
+        if (!this.cachedElements[id]) {
+            this.cachedElements[id] = document.getElementById(id);
+        }
+        return this.cachedElements[id];
+    }
+    
+    // Debounce function for frequent updates
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+    
+    // Throttle function for rate limiting
+    throttle(func, limit) {
+        let inThrottle;
+        return function(...args) {
+            if (!inThrottle) {
+                func.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
     }
     
     init() {
@@ -517,64 +553,114 @@ class UIManager {
     updatePlayerDisplay() {
         if (!window.game || !window.game.player) return;
         
-        const player = window.game.player;
+        // Use requestAnimationFrame for smooth updates
+        if (this.updatePending) return;
+        this.updatePending = true;
         
-        // Update basic info
-        this.updateElement('player-name', player.name || 'Captain');
-        this.updateElement('ship-name', player.ship_name || 'Starfarer');
-        this.updateElement('credits', this.formatNumber(player.credits || 0));
-        this.updateElement('current-sector', player.current_sector || 1);
-        this.updateElement('sector-number', player.current_sector || 1);
-        this.updateElement('sector-location', player.current_location || 'Unknown');
-        
-        // Update resource bars
-        this.updateResourceBar('health', player.health || 100, player.max_health || 100);
-        this.updateResourceBar('energy', player.energy || 100, player.max_energy || 100);
-        this.updateResourceBar('fuel', player.fuel || 100, player.max_fuel || 100);
-        
-        // Update skills
-        this.updateSkills(player.skills || {});
-        
-        // Update inventory from game data
-        if (window.game.inventory) {
-            this.updateInventory(window.game.inventory);
+        requestAnimationFrame(() => {
+            const player = window.game.player;
+            
+            // Update basic info (only if changed)
+            this.updateElementIfChanged('player-name', player.name || 'Captain');
+            this.updateElementIfChanged('ship-name', player.ship_name || 'Starfarer');
+            this.updateElementIfChanged('credits', this.formatNumber(player.credits || 0));
+            this.updateElementIfChanged('current-sector', player.current_sector || 1);
+            this.updateElementIfChanged('sector-number', player.current_sector || 1);
+            this.updateElementIfChanged('sector-location', player.current_location || 'Unknown');
+            
+            // Update resource bars
+            this.updateResourceBar('health', player.health || 100, player.max_health || 100);
+            this.updateResourceBar('energy', player.energy || 100, player.max_energy || 100);
+            this.updateResourceBar('fuel', player.fuel || 100, player.max_fuel || 100);
+            
+            // Update skills (only if changed)
+            if (JSON.stringify(player.skills || {}) !== JSON.stringify(this.lastSkills || {})) {
+                this.updateSkills(player.skills || {});
+                this.lastSkills = JSON.parse(JSON.stringify(player.skills || {}));
+            }
+            
+            // Update inventory from game data (only if changed)
+            if (window.game.inventory) {
+                const invKey = JSON.stringify(window.game.inventory);
+                if (invKey !== this.lastInventoryKey) {
+                    this.updateInventory(window.game.inventory);
+                    this.lastInventoryKey = invKey;
+                }
+            }
+            
+            // Update turn counter
+            this.updateElementIfChanged('turn-counter', window.game.world?.turn_counter || 0);
+            
+            this.updatePending = false;
+        });
+    }
+    
+    updateElementIfChanged(id, value) {
+        const element = this.getElement(id);
+        if (element && element.textContent !== String(value)) {
+            element.textContent = value;
         }
-        
-        // Update turn counter
-        this.updateElement('turn-counter', window.game.world?.turn_counter || 0);
     }
     
     updateElement(id, value) {
-        const element = document.getElementById(id);
+        const element = this.getElement(id);
         if (element) {
             element.textContent = value;
         }
     }
     
     updateResourceBar(type, current, max) {
-        const bar = document.getElementById(`${type}-bar`);
-        const text = document.getElementById(`${type}-text`);
+        const barId = `${type}-bar`;
+        const textId = `${type}-text`;
+        
+        // Cache elements
+        if (!this.cachedElements[barId]) {
+            this.cachedElements[barId] = document.getElementById(barId);
+        }
+        if (!this.cachedElements[textId]) {
+            this.cachedElements[textId] = document.getElementById(textId);
+        }
+        
+        const bar = this.cachedElements[barId];
+        const text = this.cachedElements[textId];
         
         if (bar && text) {
             const percentage = Math.round((current / max) * 100);
-            bar.style.width = `${percentage}%`;
-            text.textContent = `${current}/${max}`;
+            
+            // Only update if changed
+            const currentWidth = parseInt(bar.style.width) || 0;
+            if (currentWidth !== percentage) {
+                bar.style.width = `${percentage}%`;
+            }
+            
+            const currentText = `${current}/${max}`;
+            if (text.textContent !== currentText) {
+                text.textContent = currentText;
+            }
             
             // Add warning colors for low resources
-            bar.classList.remove('low', 'critical');
-            if (percentage < 25) {
-                bar.classList.add('critical');
-            } else if (percentage < 50) {
-                bar.classList.add('low');
+            const wasCritical = bar.classList.contains('critical');
+            const wasLow = bar.classList.contains('low');
+            const shouldBeCritical = percentage < 25;
+            const shouldBeLow = percentage >= 25 && percentage < 50;
+            
+            if (wasCritical !== shouldBeCritical || wasLow !== shouldBeLow) {
+                bar.classList.remove('low', 'critical');
+                if (shouldBeCritical) {
+                    bar.classList.add('critical');
+                } else if (shouldBeLow) {
+                    bar.classList.add('low');
+                }
             }
         }
     }
     
     updateSkills(skills) {
-        const skillsGrid = document.getElementById('skills-grid');
+        const skillsGrid = this.getElement('skills-grid');
         if (!skillsGrid) return;
         
-        skillsGrid.innerHTML = '';
+        // Use document fragment for better performance
+        const fragment = document.createDocumentFragment();
         
         Object.entries(skills).forEach(([skill, level]) => {
             const skillItem = document.createElement('div');
@@ -583,37 +669,45 @@ class UIManager {
                 <span class="skill-name">${skill}</span>
                 <span class="skill-level">Level ${level}</span>
             `;
-            skillsGrid.appendChild(skillItem);
+            fragment.appendChild(skillItem);
         });
+        
+        // Clear and append in one operation
+        skillsGrid.innerHTML = '';
+        skillsGrid.appendChild(fragment);
     }
     
     updateInventory(inventory = []) {
-        const inventoryGrid = document.getElementById('inventory-grid');
+        const inventoryGrid = this.getElement('inventory-grid');
         if (!inventoryGrid) return;
+        
+        if (!inventory || inventory.length === 0) {
+            if (inventoryGrid.innerHTML !== '<div class="inventory-empty">Cargo hold is empty</div>') {
+                inventoryGrid.innerHTML = '<div class="inventory-empty">Cargo hold is empty</div>';
+            }
+            return;
+        }
         
         // Performance optimization: use document fragment for better performance
         const fragment = document.createDocumentFragment();
-        
-        // Clear existing items efficiently
-        inventoryGrid.innerHTML = '';
-        
-        if (!inventory || inventory.length === 0) {
-            inventoryGrid.innerHTML = '<div class="inventory-empty">Cargo hold is empty</div>';
-            return;
-        }
         
         inventory.forEach(item => {
             const inventoryItem = document.createElement('div');
             inventoryItem.className = 'inventory-item';
             // Use textContent for security and performance where possible
-            inventoryItem.innerHTML = `
-                <span class="item-name">${item.name}</span>
-                <span class="item-quantity">×${item.quantity}</span>
-            `;
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'item-name';
+            nameSpan.textContent = item.name;
+            const qtySpan = document.createElement('span');
+            qtySpan.className = 'item-quantity';
+            qtySpan.textContent = `×${item.quantity}`;
+            inventoryItem.appendChild(nameSpan);
+            inventoryItem.appendChild(qtySpan);
             fragment.appendChild(inventoryItem);
         });
         
-        // Append all items at once for better performance
+        // Clear and append in one operation
+        inventoryGrid.innerHTML = '';
         inventoryGrid.appendChild(fragment);
     }
     
@@ -955,9 +1049,14 @@ class GameEngine {
     }
     
     startGameLoop() {
-        this.gameLoop = setInterval(() => {
+        // Throttle game loop updates to reduce CPU usage
+        const throttledUpdate = this.ui.throttle(() => {
             this.update();
-        }, 1000); // Update every second
+        }, 1000); // Update at most once per second
+        
+        this.gameLoop = setInterval(() => {
+            throttledUpdate();
+        }, 1000); // Check every second
     }
     
     update() {
@@ -968,7 +1067,7 @@ class GameEngine {
         // Update game systems
         this.updateSystems(deltaTime);
         
-        // Update UI
+        // Update UI (throttled)
         this.ui.update();
     }
     

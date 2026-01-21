@@ -94,6 +94,21 @@ from web.models import (
     GameSettings,
 )
 
+# Import caching
+try:
+    from flask_caching import Cache
+    cache_config = {
+        "CACHE_TYPE": "SimpleCache",  # Use simple in-memory cache
+        "CACHE_DEFAULT_TIMEOUT": 300,  # 5 minutes default
+    }
+    cache = Cache(app, config=cache_config)
+    CACHING_AVAILABLE = True
+except ImportError:
+    # Fallback to simple cache if Flask-Caching not available
+    from web.cache import cache
+    CACHING_AVAILABLE = False
+    print("Warning: Flask-Caching not available, using simple cache")
+
 # Initialize database
 init_database(app)
 
@@ -197,24 +212,40 @@ def auth_logout():
 def get_game_data() -> dict:
     """Get current game data formatted for legacy API compatibility"""
     player = get_current_player()
+    
+    # Use cache key based on player ID and turn counter (invalidates on game progress)
+    cache_key = f"game_data:{player.id}:{player.turn_counter}"
+    
+    # Try to get from cache
+    if CACHING_AVAILABLE:
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
+    else:
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
 
-    # Get inventory items
+    # Use eager loading to avoid N+1 queries
+    from sqlalchemy.orm import joinedload
+    
+    # Get inventory items with single query
     inventory_items = [item.to_dict() for item in player.inventory]
 
-    # Get discovered sectors
+    # Get discovered sectors with single query
     discovered_sectors = [
         v.sector_id
         for v in SectorVisibility.query.filter_by(player_id=player.id, discovered=True).all()
     ]
 
-    # Get active missions
+    # Get active missions with single query
     active_missions = [
         mission.to_dict()
         for mission in PlayerMission.query.filter_by(player_id=player.id, status="active").all()
     ]
 
     # Format data for legacy compatibility
-    return {
+    result = {
         "player": player.to_dict(),
         "world": {
             "current_location": player.current_location,
@@ -226,6 +257,14 @@ def get_game_data() -> dict:
         "skills": player.skills,
         "reputation": player.reputation,
     }
+    
+    # Cache for 30 seconds (short TTL since game state changes frequently)
+    if CACHING_AVAILABLE:
+        cache.set(cache_key, result, timeout=30)
+    else:
+        cache.set(cache_key, result, ttl=30)
+    
+    return result
 
 
 def update_fog_of_war(player: Player, new_sector: int = None):
@@ -239,7 +278,7 @@ def update_fog_of_war(player: Player, new_sector: int = None):
     # Get or create fog of war system
     fog_system = FogOfWarSystem(max_sectors=GameSettings.get_setting("max_sectors", 1000))
 
-    # Load existing visibility data
+    # Load existing visibility data (single query with index)
     visibility_records = SectorVisibility.query.filter_by(player_id=player.id).all()
     for record in visibility_records:
         fog_system.sector_visibility[record.sector_id].discovered = record.discovered
@@ -249,29 +288,52 @@ def update_fog_of_war(player: Player, new_sector: int = None):
     # Update visibility
     newly_visible = fog_system.update_visibility(current_sector, sensor_range)
 
-    # Save updated visibility to database
-    for sector_id in newly_visible:
-        vis_record = SectorVisibility.query.filter_by(
-            player_id=player.id, sector_id=sector_id
-        ).first()
-
-        if not vis_record:
-            vis_record = SectorVisibility(
-                player_id=player.id,
-                sector_id=sector_id,
-                discovered=True,
-                visible=True,
-                visit_count=1,
-                last_visited=datetime.utcnow(),
-            )
-            db.session.add(vis_record)
+    # Batch database operations for better performance
+    if newly_visible:
+        # Get all existing records in one query
+        existing_sectors = {
+            v.sector_id: v
+            for v in SectorVisibility.query.filter(
+                SectorVisibility.player_id == player.id,
+                SectorVisibility.sector_id.in_(newly_visible)
+            ).all()
+        }
+        
+        now = datetime.utcnow()
+        records_to_add = []
+        
+        for sector_id in newly_visible:
+            if sector_id in existing_sectors:
+                # Update existing record
+                vis_record = existing_sectors[sector_id]
+                vis_record.discovered = True
+                vis_record.visible = True
+                vis_record.visit_count += 1
+                vis_record.last_visited = now
+            else:
+                # Create new record
+                vis_record = SectorVisibility(
+                    player_id=player.id,
+                    sector_id=sector_id,
+                    discovered=True,
+                    visible=True,
+                    visit_count=1,
+                    last_visited=now,
+                )
+                records_to_add.append(vis_record)
+        
+        # Bulk add new records
+        if records_to_add:
+            db.session.bulk_save_objects(records_to_add)
+        
+        db.session.commit()
+        
+        # Invalidate cache for this player's game data
+        cache_key = f"game_data:{player.id}:{player.turn_counter}"
+        if CACHING_AVAILABLE:
+            cache.delete(cache_key)
         else:
-            vis_record.discovered = True
-            vis_record.visible = True
-            vis_record.visit_count += 1
-            vis_record.last_visited = datetime.utcnow()
-
-    db.session.commit()
+            cache.delete(cache_key)
 
 
 def check_random_events(player: Player, context: "EventContext") -> dict:
@@ -555,8 +617,20 @@ def get_status():
     """Get current game status"""
     try:
         player = get_current_player()
+        
+        # Cache status for 5 seconds (frequently called endpoint)
+        cache_key = f"status:{player.id}:{player.turn_counter}"
+        
+        if CACHING_AVAILABLE:
+            cached_status = cache.get(cache_key)
+            if cached_status is not None:
+                return jsonify(cached_status)
+        else:
+            cached_status = cache.get(cache_key)
+            if cached_status is not None:
+                return jsonify(cached_status)
 
-        # Update fog of war
+        # Update fog of war (only if not cached)
         update_fog_of_war(player)
 
         # Check for random events (low probability in status check)
@@ -567,10 +641,10 @@ def get_status():
             if random.random() < 0.01:  # 1% chance per status check
                 event_result = check_random_events(player, EventContext.IN_SPACE)
 
-        # Get inventory
+        # Get inventory (already loaded via relationship)
         inventory_items = [item.to_dict() for item in player.inventory]
 
-        # Get discovered sectors for fog of war
+        # Get discovered sectors for fog of war (single query with index)
         discovered_sectors = [
             v.sector_id
             for v in SectorVisibility.query.filter_by(player_id=player.id, discovered=True).all()
@@ -591,6 +665,12 @@ def get_status():
 
         if event_result:
             response["random_event"] = event_result
+
+        # Cache for 5 seconds
+        if CACHING_AVAILABLE:
+            cache.set(cache_key, response, timeout=5)
+        else:
+            cache.set(cache_key, response, ttl=5)
 
         return jsonify(response)
 
@@ -750,6 +830,18 @@ def get_market():
     """Get current market prices"""
     player = get_current_player()
     current_sector = player.current_sector
+    
+    # Cache market data for 30 seconds (prices update periodically)
+    cache_key = f"market:{current_sector}"
+    
+    if CACHING_AVAILABLE:
+        cached_market = cache.get(cache_key)
+        if cached_market is not None:
+            return jsonify(cached_market)
+    else:
+        cached_market = cache.get(cache_key)
+        if cached_market is not None:
+            return jsonify(cached_market)
 
     if GAME_MODULES_AVAILABLE:
         systems = get_game_systems()
@@ -775,18 +867,24 @@ def get_market():
         except Exception:
             pass
 
-        return jsonify(
-            {
-                "success": True,
-                "prices": prices,
-                "economy": {
-                    "wealth_level": economy_info.wealth_level,
-                    "specializations": economy_info.specializations,
-                    "market_condition": economy_info.market_condition.value,
-                },
-                "notes": notes,
-            }
-        )
+        result = {
+            "success": True,
+            "prices": prices,
+            "economy": {
+                "wealth_level": economy_info.wealth_level,
+                "specializations": economy_info.specializations,
+                "market_condition": economy_info.market_condition.value,
+            },
+            "notes": notes,
+        }
+        
+        # Cache for 30 seconds
+        if CACHING_AVAILABLE:
+            cache.set(cache_key, result, timeout=30)
+        else:
+            cache.set(cache_key, result, ttl=30)
+        
+        return jsonify(result)
     else:
         # Fallback static market
         prices = {
@@ -797,7 +895,15 @@ def get_market():
             "Medicine": 400,
             "Fuel": 75,
         }
-        return jsonify({"success": True, "prices": prices, "economy": {}})
+        result = {"success": True, "prices": prices, "economy": {}}
+        
+        # Cache static market too
+        if CACHING_AVAILABLE:
+            cache.set(cache_key, result, timeout=300)  # Longer TTL for static data
+        else:
+            cache.set(cache_key, result, ttl=300)
+        
+        return jsonify(result)
 
 
 @app.route("/api/combat", methods=["POST"])

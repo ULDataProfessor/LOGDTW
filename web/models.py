@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, ForeignKey, text
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -497,6 +497,42 @@ def init_database(app):
                 )
         except Exception as e:
             print(f"Warning: could not ensure user_id column: {e}")
+
+        # Create performance indexes for frequently queried columns
+        try:
+            # Indexes for Player table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_players_session_id ON players(session_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_players_user_id ON players(user_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_players_last_active ON players(last_active)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_players_current_sector ON players(current_sector)"))
+            
+            # Indexes for InventoryItem table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_inventory_player_id ON inventory_items(player_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_inventory_player_name ON inventory_items(player_id, name)"))
+            
+            # Indexes for SectorVisibility table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_sector_vis_player_id ON sector_visibility(player_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_sector_vis_sector_id ON sector_visibility(sector_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_sector_vis_player_sector ON sector_visibility(player_id, sector_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_sector_vis_discovered ON sector_visibility(player_id, discovered)"))
+            
+            # Indexes for PlayerMission table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_missions_player_id ON player_missions(player_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_missions_status ON player_missions(player_id, status)"))
+            
+            # Indexes for EventHistory table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_events_player_id ON event_history(player_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON event_history(timestamp)"))
+            
+            # Indexes for MarketData table
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_market_sector_id ON market_data(sector_id)"))
+            db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_market_sector_commodity ON market_data(sector_id, commodity)"))
+            
+            db.session.commit()
+            print("✅ Database indexes created successfully")
+        except Exception as e:
+            print(f"Warning: could not create indexes: {e}")
+            db.session.rollback()
 
         # Initialize default settings
         default_settings = [

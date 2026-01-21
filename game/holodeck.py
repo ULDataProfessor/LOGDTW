@@ -207,34 +207,34 @@ class HolodeckSystem:
                 rewards_given.append(f"+{amount} Strength")
             elif reward_type == "combat_skill":
                 if "combat" in player.skills:
-                    player.skills["combat"].gain_experience(amount)
+                    player.skills["combat"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Combat Skill")
             elif reward_type == "knowledge":
                 if "knowledge" in player.skills:
-                    player.skills["knowledge"].gain_experience(amount)
+                    player.skills["knowledge"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Knowledge")
             elif reward_type == "tactics":
                 if "tactics" in player.skills:
-                    player.skills["tactics"].gain_experience(amount)
+                    player.skills["tactics"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Tactics")
             elif reward_type == "survival":
                 if "survival" in player.skills:
-                    player.skills["survival"].gain_experience(amount)
+                    player.skills["survival"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Survival")
             elif reward_type == "mental_health":
                 player.add_mental_health(amount)
                 rewards_given.append(f"+{amount} Mental Health")
             elif reward_type == "piloting":
                 if "piloting" in player.skills:
-                    player.skills["piloting"].gain_experience(amount)
+                    player.skills["piloting"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Piloting")
             elif reward_type == "exploration":
                 if "exploration" in player.skills:
-                    player.skills["exploration"].gain_experience(amount)
+                    player.skills["exploration"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Exploration")
             elif reward_type == "culture":
                 if "culture" in player.skills:
-                    player.skills["culture"].gain_experience(amount)
+                    player.skills["culture"].gain_experience(amount, player_skills_dict)
                 rewards_given.append(f"+{amount} Culture")
 
         # Reset active program

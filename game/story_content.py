@@ -1,82 +1,49 @@
-"""Story content for LOGDTW2002"""
+"""Story content module for LOGDTW2002
 
-from dataclasses import dataclass
+This module provides a unified interface to all story content types. The actual
+content data is stored in separate files for better organization:
+- faction_storylines.py: Faction storyline definitions
+- campaign_missions.py: Campaign mission definitions
+- character_backstories.py: Character backstory definitions
+- lore_entries.py: Lore entry definitions
+
+All story content types are defined in story_types.py
+"""
+
 from typing import List, Dict, Optional
 
+# Import data from separate files
+from game.faction_storylines import FACTION_STORIES
+from game.campaign_missions import CAMPAIGN_MISSIONS
+from game.character_backstories import CHARACTER_BACKSTORIES
+from game.lore_entries import LORE_ENTRIES
 
-@dataclass
-class FactionStoryline:
-    faction: str
-    summary: str
-    missions: List[str]
+# Export types for convenience
+from game.story_types import (
+    FactionStoryline,
+    CampaignMission,
+    CharacterBackstory,
+    LoreEntry,
+)
 
-
-@dataclass
-class CampaignMission:
-    title: str
-    description: str
-    faction: str
-    reward: int
-
-
-@dataclass
-class CharacterBackstory:
-    name: str
-    backstory: str
-
-
-@dataclass
-class LoreEntry:
-    topic: str
-    content: str
-
-
-# Sample data for story content
-FACTION_STORIES: Dict[str, FactionStoryline] = {
-    "Federation": FactionStoryline(
-        faction="Federation",
-        summary="Protect the core worlds and maintain order.",
-        missions=["Secure trade routes", "Investigate anomalies"],
-    ),
-    "Pirates": FactionStoryline(
-        faction="Pirates",
-        summary="Rule the outskirts through fear and profit.",
-        missions=["Raid convoys", "Smuggle goods"],
-    ),
-}
-
-CAMPAIGN_MISSIONS: List[CampaignMission] = [
-    CampaignMission(
-        title="First Contact",
-        description="Meet with the alien envoy.",
-        faction="Federation",
-        reward=5000,
-    ),
-    CampaignMission(
-        title="Black Market Deal",
-        description="Secure illegal goods for profit.",
-        faction="Pirates",
-        reward=3000,
-    ),
+# Re-export data for backward compatibility
+__all__ = [
+    "FactionStoryline",
+    "CampaignMission",
+    "CharacterBackstory",
+    "LoreEntry",
+    "FACTION_STORIES",
+    "CAMPAIGN_MISSIONS",
+    "CHARACTER_BACKSTORIES",
+    "LORE_ENTRIES",
+    "get_faction_storyline",
+    "get_campaign_missions",
+    "get_campaign_mission_by_id",
+    "get_available_campaign_missions",
+    "get_faction_campaign_missions",
+    "get_character_backstory",
+    "get_lore_entry",
 ]
-
-CHARACTER_BACKSTORIES: Dict[str, CharacterBackstory] = {
-    "Captain Steele": CharacterBackstory(
-        name="Captain Steele", backstory="A decorated Federation officer seeking redemption."
-    ),
-    "Trader McKenzie": CharacterBackstory(
-        name="Trader McKenzie", backstory="A seasoned merchant with a mysterious past."
-    ),
-}
-
-LORE_ENTRIES: Dict[str, LoreEntry] = {
-    "Genesis Torpedo": LoreEntry(
-        topic="Genesis Torpedo", content="A mythical weapon said to create worlds."
-    ),
-    "Old Earth": LoreEntry(
-        topic="Old Earth", content="The birthplace of humanity and center of the Federation."
-    ),
-}
 
 
 def get_faction_storyline(faction: str) -> Optional[FactionStoryline]:
@@ -87,6 +54,29 @@ def get_faction_storyline(faction: str) -> Optional[FactionStoryline]:
 def get_campaign_missions() -> List[CampaignMission]:
     """Return list of campaign missions"""
     return CAMPAIGN_MISSIONS
+
+
+def get_campaign_mission_by_id(mission_id: str) -> Optional[CampaignMission]:
+    """Get a specific campaign mission by ID"""
+    for mission in CAMPAIGN_MISSIONS:
+        if mission.mission_id == mission_id:
+            return mission
+    return None
+
+
+def get_available_campaign_missions(completed_mission_ids: List[str]) -> List[CampaignMission]:
+    """Get campaign missions that are available based on completed prerequisites"""
+    available = []
+    for mission in CAMPAIGN_MISSIONS:
+        if not mission.prerequisites or all(prereq in completed_mission_ids for prereq in mission.prerequisites):
+            if mission.mission_id not in completed_mission_ids:
+                available.append(mission)
+    return available
+
+
+def get_faction_campaign_missions(faction: str) -> List[CampaignMission]:
+    """Get all campaign missions for a specific faction"""
+    return [mission for mission in CAMPAIGN_MISSIONS if mission.faction == faction]
 
 
 def get_character_backstory(name: str) -> Optional[CharacterBackstory]:

@@ -58,8 +58,13 @@ class Skill:
         self.unlocked_abilities = []
         self.mastery_points = 0  # Points for unlocking special abilities
 
-    def gain_experience(self, amount: int) -> Dict:
-        """Gain experience in this skill, return leveling info"""
+    def gain_experience(self, amount: int, player_skills: Dict[str, int] = None) -> Dict:
+        """Gain experience in this skill, return leveling info
+        
+        Args:
+            amount: Amount of experience to gain
+            player_skills: Dictionary of skill names to levels for prerequisite checking
+        """
         self.experience += amount
         result = {"leveled_up": False, "new_unlocks": [], "messages": []}
 
@@ -79,8 +84,8 @@ class Skill:
             result["new_level"] = self.level
             result["mastery_gained"] = mastery_gained
 
-            # Check for new unlocks
-            new_unlocks = self._check_new_unlocks()
+            # Check for new unlocks (with player skills for prerequisite checking)
+            new_unlocks = self._check_new_unlocks(player_skills)
             result["new_unlocks"] = new_unlocks
 
             # Generate level up message
@@ -92,8 +97,12 @@ class Skill:
 
         return result
 
-    def _check_new_unlocks(self) -> List[SkillUnlock]:
-        """Check for new abilities unlocked at current level"""
+    def _check_new_unlocks(self, player_skills: Dict[str, int] = None) -> List[SkillUnlock]:
+        """Check for new abilities unlocked at current level
+        
+        Args:
+            player_skills: Dictionary of skill names to levels for prerequisite checking
+        """
         unlocks = SKILL_UNLOCKS.get(self.name, [])
         new_unlocks = []
 
@@ -103,22 +112,50 @@ class Skill:
             ]:
 
                 # Check prerequisites
-                if self._check_prerequisites(unlock.prerequisites):
+                if self._check_prerequisites(unlock.prerequisites, player_skills):
                     self.unlocked_abilities.append(unlock)
                     new_unlocks.append(unlock)
 
         return new_unlocks
 
-    def _check_prerequisites(self, prerequisites: List[str]) -> bool:
-        """Check if prerequisites are met"""
+    def _check_prerequisites(self, prerequisites: List[str], player_skills: Dict[str, int] = None) -> bool:
+        """Check if prerequisites are met
+        
+        Args:
+            prerequisites: List of prerequisite requirements (format: "skill_name" or "skill_name:level")
+            player_skills: Dictionary of skill names to levels for checking prerequisites
+        
+        Returns:
+            True if all prerequisites are met, False otherwise
+        """
         if not prerequisites:
             return True
         
-        # For now, this checks if other skills exist in the skill tree
-        # In a full implementation, this would check actual player skill levels
-        # TODO: This needs access to player skills to check actual levels
-        # For now, we'll assume basic prerequisites are met after level 5
-        return self.level >= 5
+        # If no player skills provided, use fallback behavior
+        if player_skills is None:
+            # Fallback: assume prerequisites are met if skill level is high enough
+            # This maintains backward compatibility
+            return self.level >= 5
+        
+        # Check each prerequisite
+        for prereq in prerequisites:
+            if ':' in prereq:
+                # Format: "skill_name:level" - requires specific skill at specific level
+                try:
+                    req_skill, req_level = prereq.split(':')
+                    req_level = int(req_level)
+                    player_level = player_skills.get(req_skill, 0)
+                    if player_level < req_level:
+                        return False
+                except (ValueError, AttributeError):
+                    # Invalid format, skip this prerequisite
+                    continue
+            else:
+                # Simple skill requirement - check if player has the skill at level 1+
+                if prereq not in player_skills or player_skills[prereq] < 1:
+                    return False
+        
+        return True
 
     def get_progress_percentage(self) -> float:
         """Get progress percentage to next level"""

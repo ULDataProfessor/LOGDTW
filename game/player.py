@@ -235,8 +235,10 @@ class Player:
         self.experience_to_next = int(self.experience_to_next * 1.5)
 
         # Gain skill points
+        # Build player skills dictionary for prerequisite checking
+        player_skills_dict = {name: skill.level for name, skill in self.skills.items()}
         for skill in self.skills.values():
-            skill.gain_experience(random.randint(5, 15))
+            skill.gain_experience(random.randint(5, 15), player_skills_dict)
 
     def get_skill_level(self, skill_name: str) -> int:
         """Get the level of the specified skill, or 0 if not found."""
@@ -540,3 +542,30 @@ class Player:
     def has_treaty(self, faction: str, treaty_type: Optional[str] = None) -> bool:
         """Check if a treaty exists with a faction."""
         return self.diplomacy.has_treaty(faction, treaty_type)
+
+    # -- Crafting methods -----------------------------------------
+    def add_material(self, material_name: str, quantity: int = 1):
+        """Add crafting materials to player's material inventory."""
+        self.materials[material_name] = self.materials.get(material_name, 0) + quantity
+
+    def has_materials(self, required: Dict[str, int]) -> bool:
+        """Check if player has all required materials."""
+        for material, quantity in required.items():
+            if self.materials.get(material, 0) < quantity:
+                return False
+        return True
+
+    def remove_materials(self, required: Dict[str, int]):
+        """Remove materials from player's inventory."""
+        for material, quantity in required.items():
+            current = self.materials.get(material, 0)
+            self.materials[material] = max(0, current - quantity)
+            if self.materials[material] == 0:
+                del self.materials[material]
+
+    def craft(self, recipe_name: str) -> Dict:
+        """Craft an item using a recipe name."""
+        from game.crafting import craft_item, RECIPES
+        if recipe_name not in RECIPES:
+            return {"success": False, "message": f"Unknown recipe: {recipe_name}"}
+        return craft_item(self, RECIPES[recipe_name])
