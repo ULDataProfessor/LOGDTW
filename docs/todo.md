@@ -2,7 +2,36 @@
 
 ## 🎯 Recent Updates
 
-### Local Mode with SQLite Fallback (Latest)
+### NPC Story System with Subtle Hints (Latest)
+- ✅ **Story Library**: Created comprehensive story system for NPCs to share hints and lore
+  - 30+ stories covering game mechanics, strategies, secrets, warnings, and lore
+  - Stories provide subtle hints (hint levels 1-4) without being too obvious
+  - Stories matched to NPC personalities (traders tell trading stories, scientists tell research stories, etc.)
+  - Personality-based story delivery (technical, poetic, gruff, casual, formal speech patterns)
+  - Created `game/npc_stories.py` with `NPCStoryLibrary` class
+  - Story types: mechanics hints, strategy, secrets, warnings, rumors, lore
+  - All NPC types can now tell stories when asked
+  - Stories provide relationship bonuses when shared
+
+### Enhanced NPC Personality & Negotiation System
+- ✅ **Enhanced Personality System**: Created comprehensive personality profiles for NPCs
+  - 10 personality dimensions (friendliness, aggression, intelligence, loyalty, greed, curiosity, honesty, patience, charisma, cautiousness)
+  - Derived characteristics (personality type, speech patterns, emotional states, interests)
+  - Personality-based dialogue modifiers and reactions
+  - Created `game/personality.py` with `PersonalityProfile` class
+- ✅ **Negotiation Module**: Multi-step negotiation system for complex interactions
+  - Multi-round negotiations with counter-offers
+  - Personality-based negotiation styles (aggressive, patient, honest, greedy, etc.)
+  - Success chance calculations based on personality traits
+  - Conversation history tracking
+  - Relationship impact from negotiations
+  - Created `game/negotiation.py` with `NegotiationSystem` class
+- ✅ **Integration**: Updated NPC system to use new personality and negotiation modules
+  - NPCs now have rich personality profiles
+  - Negotiations are multi-step with realistic counter-offers
+  - Personality affects all interactions (greetings, dialogue, negotiations)
+
+### Local Mode with SQLite Fallback
 - ✅ **Database Local Mode**: Added automatic fallback to local SQLite when primary database is unavailable
   - Created `web/db_adapter.py` with `DatabaseAdapter` and `LocalDatabase` classes
   - Automatic connection monitoring and fallback
@@ -71,6 +100,9 @@
 
 #### Advanced Features
 - ✅ **NPC System**: Interactive NPCs with conversations and personalities
+  - ✅ Enhanced personality system with 10 personality dimensions
+  - ✅ Multi-step negotiation system for complex interactions
+  - ✅ Personality-based dialogue and behavior
 - ✅ **Holodeck System**: 10+ entertainment programs
 - ✅ **Stock Market**: 8 companies with dynamic pricing
 - ✅ **Banking System**: Multiple account types with interest

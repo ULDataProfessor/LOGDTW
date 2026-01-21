@@ -11,7 +11,9 @@ from typing import Dict, List, Optional
 from game.player import Player
 from game.quests import QuestSystem
 from game.story_content import get_character_backstory
-from typing import Optional
+from game.personality import PersonalityProfile
+from game.negotiation import NegotiationSystem, NegotiationState
+from game.npc_stories import get_story_library, StoryType
 
 
 @dataclass
@@ -40,6 +42,7 @@ class NPC:
     personality_traits: Dict[str, int] = field(default_factory=dict)
     relationships: Dict[str, int] = field(default_factory=dict)
     dialogue_tree: Dict[str, DialogueNode] = field(default_factory=dict)
+    personality_profile: Optional[PersonalityProfile] = None  # Enhanced personality
     
     # Enhanced: Memory and learning
     memory: Dict[str, any] = field(default_factory=dict)  # Remember interactions
@@ -98,6 +101,11 @@ class NPC:
         """Generate a personalized greeting based on relationship and memory"""
         relationship = self.get_relationship(player_name)
         
+        # Use personality profile if available
+        greeting_modifier = ""
+        if self.personality_profile:
+            greeting_modifier = self.personality_profile.get_greeting_modifier()
+        
         # Enhanced: Use memory to personalize
         if self.player_interactions > 0:
             if relationship > 50:
@@ -119,7 +127,7 @@ class NPC:
 
 
 class NPCSystem:
-    """Handles NPC interactions and conversations"""
+    """NPC system with enhanced personality and negotiation support"""
 
     def __init__(self, quest_system=None, trading_system=None):
         self.npcs = {}
@@ -127,6 +135,7 @@ class NPCSystem:
         self.npc_templates = self._create_npc_templates()
         self.quest_system = quest_system
         self.trading_system = trading_system
+        self.negotiation_system = NegotiationSystem()  # Add negotiation system
 
     def set_systems(self, quest_system, trading_system):
         """Link external systems after initialization"""
@@ -151,17 +160,9 @@ class NPCSystem:
 
     def _generate_personality_traits(self, base: str) -> Dict[str, int]:
         """Generate nuanced personality traits based on base personality"""
-        traits = {
-            "friendliness": random.randint(-5, 5),
-            "aggression": random.randint(-5, 5),
-            "intelligence": random.randint(1, 10),
-            "loyalty": random.randint(-5, 5),
-        }
-        if base == "friendly":
-            traits["friendliness"] += 3
-        elif base == "hostile":
-            traits["aggression"] += 3
-        return traits
+        # Use the new PersonalityProfile system
+        profile = PersonalityProfile.from_base_personality(base)
+        return profile.to_dict()
 
     def _create_dialogue_tree(self, dialogue: Dict[str, List[str]]) -> Dict[str, DialogueNode]:
         """Create a simple dialogue tree structure using ``DialogueNode`` objects."""
@@ -459,6 +460,7 @@ class NPCSystem:
             faction=faction,
             personality_traits=self._generate_personality_traits(template["personality"]),
             dialogue_tree=dialogue_tree,
+            personality_profile=PersonalityProfile.from_base_personality(template["personality"]),
         )
 
         self.npcs[name] = npc
@@ -594,21 +596,25 @@ class NPCSystem:
 
         # Add type-specific options
         if npc.npc_type == "trader":
-            options.extend(["Browse goods", "Negotiate prices", "Ask about trade secrets"])
+            options.extend(["Browse goods", "Negotiate prices", "Ask about trade secrets", "Ask for a story"])
         elif npc.npc_type == "scientist":
-            options.extend(["Discuss research", "Share discoveries", "Ask about classified data"])
+            options.extend(["Discuss research", "Share discoveries", "Ask about classified data", "Ask for a story"])
         elif npc.npc_type == "entertainer":
-            options.extend(["Request performance", "Book holodeck", "Ask for stories"])
+            options.extend(["Request performance", "Book holodeck", "Ask for stories", "Ask for a story"])
         elif npc.npc_type == "official":
             options.extend(
-                ["Request permits", "File complaints", "Ask about classified information"]
+                ["Request permits", "File complaints", "Ask about classified information", "Ask for a story"]
             )
         elif npc.npc_type == "pirate":
             options.extend(
-                ["Negotiate passage", "Offer tribute", "Ask about dangerous information"]
+                ["Negotiate passage", "Offer tribute", "Ask about dangerous information", "Ask for a story"]
             )
         elif npc.npc_type == "mystic":
-            options.extend(["Seek prophecy", "Ask about the void", "Request mystical guidance"])
+            options.extend(["Seek prophecy", "Ask about the void", "Request mystical guidance", "Ask for a story"])
+        
+        # All NPCs can tell stories, so add it as a general option if not already there
+        if "Ask for a story" not in options:
+            options.append("Ask for a story")
 
         # Add secret dialogue option (random chance)
         if random.random() < 0.3:  # 30% chance
@@ -640,6 +646,8 @@ class NPCSystem:
         elif choice == "Request performance" and npc.npc_type == "entertainer":
             result = self._handle_request_performance(npc)
         elif choice == "Ask for stories" and npc.npc_type == "entertainer":
+            result = self._handle_stories_request(npc)
+        elif choice == "Ask for a story" or choice == "Tell me a story":
             result = self._handle_stories_request(npc)
         elif choice == "Ask about classified information" and npc.npc_type == "official":
             result = self._handle_classified_information(npc)
@@ -726,12 +734,77 @@ class NPCSystem:
         return {"message": goods_text}
 
     def _handle_negotiate_prices(self, player: Player, npc: NPC) -> Dict:
-        """Handle price negotiation"""
+        """Handle price negotiation - now uses negotiation system"""
         if player.credits < 100:
             return {"message": f"{npc.name} looks unimpressed with your credit balance."}
 
-        discount = random.randint(5, 15)
-        return {"message": f"{npc.name} offers you a {discount}% discount on your next purchase!"}
+        # Use negotiation system for multi-step negotiation
+        if npc.personality_profile is None:
+            npc.personality_profile = PersonalityProfile.from_base_personality(npc.personality)
+        
+        # Start negotiation for a discount
+        base_price = 1000  # Example base price
+        session = self.negotiation_system.start_negotiation(
+            npc_name=npc.name,
+            npc_personality=npc.personality_profile,
+            offer_type="discount",
+            initial_value=base_price,
+            minimum_acceptable=base_price * 0.85,  # 15% discount max
+            maximum_possible=base_price * 0.95,  # 5% discount min
+        )
+        
+        return {
+            "message": session.conversation_history[0]["message"],
+            "negotiation_started": True,
+            "npc_name": npc.name,
+            "offer_range": {
+                "min": session.offer.minimum_acceptable,
+                "max": session.offer.maximum_possible
+            }
+        }
+    
+    def _handle_start_negotiation(self, player: Player, npc: NPC, negotiation_type: str) -> Dict:
+        """Start a new negotiation session"""
+        if npc.personality_profile is None:
+            npc.personality_profile = PersonalityProfile.from_base_personality(npc.personality)
+        
+        # Determine negotiation parameters based on type
+        if "price" in negotiation_type.lower() or "discount" in negotiation_type.lower():
+            base_value = 1000
+            min_value = base_value * 0.85
+            max_value = base_value * 0.95
+            offer_type = "discount"
+        elif "trade" in negotiation_type.lower():
+            base_value = 500
+            min_value = base_value * 0.8
+            max_value = base_value * 1.2
+            offer_type = "trade"
+        else:
+            base_value = 100
+            min_value = base_value * 0.9
+            max_value = base_value * 1.1
+            offer_type = "service"
+        
+        session = self.negotiation_system.start_negotiation(
+            npc_name=npc.name,
+            npc_personality=npc.personality_profile,
+            offer_type=offer_type,
+            initial_value=base_value,
+            minimum_acceptable=min_value,
+            maximum_possible=max_value,
+        )
+        
+        return {
+            "message": session.conversation_history[0]["message"],
+            "negotiation_started": True,
+            "npc_name": npc.name,
+            "offer_range": {
+                "min": session.offer.minimum_acceptable,
+                "max": session.offer.maximum_possible
+            },
+            "round": session.round,
+            "max_rounds": session.max_rounds
+        }
 
     def _handle_discuss_research(self, npc: NPC) -> Dict:
         """Handle research discussion"""
