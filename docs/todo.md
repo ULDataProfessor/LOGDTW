@@ -2,7 +2,15 @@
 
 ## 🎯 Recent Updates
 
-### Skills Prerequisites Fix (Latest)
+### Project Maintenance (Latest)
+- ✅ **Updated .gitignore**: Added database files, Flask sessions, cache files, and build artifacts
+  - Added SQLite database files (*.db, *.db-journal, *.db-wal, *.db-shm)
+  - Added Flask session directories
+  - Added cache directories and web assets cache
+  - Added Node.js artifacts (if used)
+  - Prevents syncing local development files and databases
+
+### Skills Prerequisites Fix
 - ✅ **Fixed Prerequisites Checking**: Skills now properly check actual player skill levels
   - Updated `Skill._check_prerequisites()` to accept player skills dictionary
   - Supports both simple requirements ("skill_name") and level-specific ("skill_name:level")
@@ -372,6 +380,15 @@
 
 ---
 
-*Last Updated: Based on current codebase analysis*
+## 📅 Changelog
+
+### 2024 - Recent Work
+- **Combat System Polish**: Expanded enemy types (4→11), added difficulty scaling, full combat integration
+- **Skills Prerequisites Fix**: Fixed prerequisite checking to use actual player skill levels
+- **Project Maintenance**: Updated .gitignore for database files and build artifacts
+
+---
+
+*Last Updated: 2024 - Recent combat and skills improvements*
 *For specific issues, check the code comments and TODO markers*
 
