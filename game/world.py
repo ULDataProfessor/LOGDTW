@@ -181,7 +181,7 @@ class World:
 
         # Sector persistence
         self.max_sectors = max_sectors
-        default_db = os.path.join(os.path.expanduser("~"), ".logdtw2002", "sectors.db")
+        default_db = os.path.join(os.path.expanduser("~"), ".stellarodyssey2080", "sectors.db")
         self.sector_repo = SectorRepository(db_path or default_db)
 
         # Initialize the game world

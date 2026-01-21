@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Startup script for LOGDTW2002 Web Server
+Startup script for StellarOdyssey2080 Web Server
 Activates virtual environment and runs the Flask web application
 """
 
@@ -11,7 +11,7 @@ import subprocess
 
 def main():
     """Start the web server"""
-    print("Starting LOGDTW2002 Web Server...")
+    print("Starting StellarOdyssey2080 Web Server...")
 
     # Get current directory (web/) and parent directory
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -83,7 +83,7 @@ rich==13.7.0"""
             print(f"✓ Created directory: {dir_name}")
 
     # Run the Flask web application
-    print("🚀 Launching LOGDTW2002 Web Server...")
+    print("🚀 Launching StellarOdyssey2080 Web Server...")
     print("=" * 40)
     print("Web interface: http://localhost:5002")
     print("API endpoints: http://localhost:5002/api/")

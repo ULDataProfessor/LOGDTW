@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Caching utilities for LOGDTW2002 web application
+Caching utilities for StellarOdyssey2080 web application
 Provides in-memory caching for frequently accessed data
 """
 

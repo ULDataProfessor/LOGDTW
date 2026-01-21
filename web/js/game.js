@@ -1,4 +1,4 @@
-// LOGDTW2002 Web Edition - Main Game Logic
+// StellarOdyssey2080 Web Edition - Main Game Logic
 
 class TerminalManager {
     constructor() {
@@ -22,7 +22,7 @@ class TerminalManager {
         this.addASCIIArt('starship');
         
         setTimeout(() => {
-            this.addLine('SYSTEM', 'LOGDTW2002 Space Trading Terminal v2.0', 'success');
+            this.addLine('SYSTEM', 'StellarOdyssey2080 Space Trading Terminal v2.0', 'success');
             this.addLine('SYSTEM', 'Initializing quantum flux capacitors...', 'info');
         }, 500);
         
@@ -949,7 +949,7 @@ class GameEngine {
     }
     
     init() {
-        console.log('🚀 Initializing LOGDTW2002 Web Edition...');
+        console.log('🚀 Initializing StellarOdyssey2080 Web Edition...');
         
         // Initialize subsystems
         this.terminal = new TerminalManager();
@@ -1476,7 +1476,7 @@ class GameEngine {
     
     showAbout() {
         this.terminal.addASCIIArt('logo');
-        this.terminal.addLine('ABOUT', 'LOGDTW2002 - Web Edition', 'success');
+        this.terminal.addLine('ABOUT', 'StellarOdyssey2080 - Web Edition', 'success');
         this.terminal.addLine('ABOUT', 'A space trading simulation game', 'info');
         this.terminal.addLine('ABOUT', 'Inspired by Trade Wars 2002 and Legend of the Green Dragon', 'info');
         this.terminal.addLine('ABOUT', 'Built with Flask, JavaScript, and ASCII art', 'info');

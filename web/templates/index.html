@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LOGDTW2002 - Web Edition</title>
+    <title>StellarOdyssey2080 - Web Edition</title>
     <link rel="stylesheet" href="{{ url_for('css_files', filename='style.css') }}">
     <link rel="stylesheet" href="{{ url_for('css_files', filename='terminal.css') }}">
     <link rel="manifest" href="{{ url_for('manifest_json') }}" />
@@ -21,8 +21,8 @@
         <header class="game-header">
             <div class="header-content">
                 <h1 class="game-title">
-                    <span class="title-main">LOGDTW2002</span>
-                    <span class="title-sub">Legend of the Green Dragon meets TW2002</span>
+                    <span class="title-main">StellarOdyssey2080</span>
+                    <span class="title-sub">A Space Adventure Game</span>
                 </h1>
                 <div class="header-actions">
                     <span id="user-display" style="margin-right:8px;">Guest</span>
@@ -232,7 +232,7 @@
                     <div class="news-feed" id="news-feed">
                         <div class="news-item">
                             <div class="news-date">Turn <span id="turn-counter">0</span></div>
-                            <div class="news-text">Welcome to the LOGDTW2002 galaxy!</div>
+                            <div class="news-text">Welcome to the StellarOdyssey2080 galaxy!</div>
                         </div>
                     </div>
                 </div>
@@ -272,7 +272,7 @@
     <div id="loading-screen" class="loading-screen">
         <div class="loading-content">
             <div class="spinner"></div>
-            <h2>Initializing LOGDTW2002...</h2>
+            <h2>Initializing StellarOdyssey2080...</h2>
             <p>Connecting to galactic network...</p>
         </div>
     </div>
@@ -285,7 +285,7 @@
         
         // Initialize game when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('🚀 LOGDTW2002 Flask Edition starting...');
+            console.log('🚀 StellarOdyssey2080 Flask Edition starting...');
             window.game = new GameEngine();
             
             // Hide loading screen after initialization

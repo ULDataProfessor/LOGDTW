@@ -51,7 +51,7 @@ def reset_game_state():
     game_state = _default_state()
 
 
-app = FastAPI(title="LOGDTW API")
+app = FastAPI(title="StellarOdyssey2080 API")
 
 
 class TravelRequest(BaseModel):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration for LOGDTW2002 Flask application
+Configuration for StellarOdyssey2080 Flask application
 """
 
 import os

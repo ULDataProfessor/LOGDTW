@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database Models for LOGDTW2002 Flask Web Application
+Database Models for StellarOdyssey2080 Flask Web Application
 SQLite3-based models with SQLAlchemy ORM
 """
 

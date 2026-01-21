@@ -1,4 +1,4 @@
-# LOGDTW2002 Web Requirements (Flask)
+# StellarOdyssey2080 Web Requirements (Flask)
 # Install with: pip install -r requirements-web.txt
 
 # Core Flask dependencies

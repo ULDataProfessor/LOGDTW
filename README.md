@@ -1,6 +1,6 @@
-# LOGDTW - Legend of the Green Dragon meets TW
+# StellarOdyssey2080
 
-A text-based adventure game that combines the RPG elements of Legend of the Green Dragon with the space exploration and resource management of TW.
+A text-based adventure game that combines RPG elements with space exploration and resource management. Explore the galaxy, trade goods, build your empire, and embark on epic space adventures.
 
 ## Features
 

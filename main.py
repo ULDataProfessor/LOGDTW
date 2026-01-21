@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LOGDTW2002 - Legend of the Green Dragon meets TW2002
+StellarOdyssey2080
 A text-based adventure game combining RPG elements with space exploration
 """
 
@@ -76,8 +76,8 @@ class Game:
         """Display the game title screen with ASCII art"""
         self.clear_screen()
 
-        title_text = Text("LOGDTW2002", style="bold magenta")
-        subtitle_text = Text("Legend of the Green Dragon meets TW2002", style="cyan")
+        title_text = Text("StellarOdyssey2080", style="bold magenta")
+        subtitle_text = Text("A Space Adventure Game", style="cyan")
 
         # ASCII art for the title
         ascii_art = """
@@ -137,7 +137,7 @@ class Game:
     def show_help(self):
         """Display help information"""
         help_text = """
-        [bold cyan]LOGDTW2002 - Game Controls[/bold cyan]
+        [bold cyan]StellarOdyssey2080 - Game Controls[/bold cyan]
         
         [bold yellow]Basic Commands:[/bold yellow]
         - ? (show quick command list)
@@ -1594,7 +1594,7 @@ sectors - All sectors  sector - Current sector
             elif choice == "help":
                 self.show_help()
             elif choice == "quit":
-                self.console.print("[green]Thanks for playing LOGDTW2002![/green]")
+                self.console.print("[green]Thanks for playing StellarOdyssey2080![/green]")
                 break
 
 

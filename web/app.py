@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Flask Web Application for LOGDTW2002
+Flask Web Application for StellarOdyssey2080
 A complete web interface for the space trading game with SQLite database
 """
 
@@ -68,7 +68,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 
 # Database configuration
-database_path = os.path.join(os.path.dirname(__file__), "logdtw2002.db")
+database_path = os.path.join(os.path.dirname(__file__), "stellarodyssey2080.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{database_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
@@ -1390,7 +1390,7 @@ if __name__ == "__main__":
     if not os.path.exists(templates_dir):
         os.makedirs(templates_dir)
 
-    print("🚀 Starting LOGDTW2002 Flask Web Server")
+    print("🚀 Starting StellarOdyssey2080 Flask Web Server")
     print("=" * 40)
     print(f"Environment: {config_name}")
     print(f"Debug mode: {app.config.get('DEBUG', False)}")

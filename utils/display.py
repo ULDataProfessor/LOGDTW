@@ -1,5 +1,5 @@
 """
-Display manager for LOGDTW2002
+Display manager for StellarOdyssey2080
 Handles game display and formatting
 """
 
@@ -349,7 +349,7 @@ class DisplayManager:
     def show_help(self):
         """Display help information"""
         help_text = """
-[bold cyan]LOGDTW2002 - Game Controls[/bold cyan]
+[bold cyan]StellarOdyssey2080 - Game Controls[/bold cyan]
 
 [bold yellow]Movement:[/bold yellow]
 • north, south, east, west (or n, s, e, w)

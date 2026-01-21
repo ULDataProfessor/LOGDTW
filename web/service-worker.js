@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'logdtw2002-static-v1';
-const RUNTIME_CACHE = 'logdtw2002-runtime-v1';
+const STATIC_CACHE = 'stellarodyssey2080-static-v1';
+const RUNTIME_CACHE = 'stellarodyssey2080-runtime-v1';
 const ASSETS = [
   '/',
   '/css/style.css',

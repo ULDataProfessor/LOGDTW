@@ -1,5 +1,5 @@
 """
-Input handler for LOGDTW2002
+Input handler for StellarOdyssey2080
 Handles player input and command processing
 """
 

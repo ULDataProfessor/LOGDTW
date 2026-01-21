@@ -1,4 +1,4 @@
-LOGDTW2002 Web (Flask + PWA)
+StellarOdyssey2080 Web (Flask + PWA)
 ================================
 
 Run (dev)
@@ -26,9 +26,9 @@ Directory
 - `templates/index.html` is served by Flask
 - `css/`, `js/`, `icons/`, and PWA assets live under `/web`
 
-# LOGDTW2002 Web Edition (Flask)
+# StellarOdyssey2080 Web Edition (Flask)
 
-A modern web interface for the LOGDTW2002 space trading game built with Flask.
+A modern web interface for the StellarOdyssey2080 space trading game built with Flask.
 
 ## 🚀 Quick Start
 

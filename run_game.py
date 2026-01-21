@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Startup script for LOGDTW2002
+Startup script for StellarOdyssey2080
 Activates virtual environment and runs the game
 """
 
@@ -11,7 +11,7 @@ import subprocess
 
 def main():
     """Start the game"""
-    print("Starting LOGDTW2002...")
+    print("Starting StellarOdyssey2080...")
 
     # Check if virtual environment exists
     if not os.path.exists("venv"):
@@ -37,7 +37,7 @@ def main():
         subprocess.run([python_exe, "-m", "pip", "install", "-r", "requirements.txt"])
 
     # Run the game
-    print("Launching LOGDTW2002...")
+    print("Launching StellarOdyssey2080...")
     subprocess.run([python_exe, "main.py"])
 
 
