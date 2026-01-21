@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from flask import Flask, session, request, jsonify, render_template, send_from_directory, g
 from werkzeug.security import generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 
 # Add the parent directory to the path to import game modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -686,6 +687,17 @@ def api_empire_status():
 def get_status():
     """Get current game status"""
     try:
+        # Ensure database is initialized
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception as db_error:
+            app.logger.error(f"Database connection error in /api/status: {str(db_error)}")
+            return jsonify({
+                "success": False, 
+                "message": "Database connection error. Please refresh the page.",
+                "error_type": "database_connection"
+            }), 503
+        
         player = get_current_player()
         
         # Cache status for 5 seconds (frequently called endpoint)
@@ -700,25 +712,40 @@ def get_status():
             if cached_status is not None:
                 return jsonify(cached_status)
 
-        # Update fog of war (only if not cached)
-        update_fog_of_war(player)
+        # Update fog of war (only if not cached) - wrap in try/except to prevent failures
+        try:
+            update_fog_of_war(player)
+        except Exception as fog_error:
+            app.logger.warning(f"Fog of war update failed: {str(fog_error)}")
+            # Continue without fog of war update
 
         # Check for random events (low probability in status check)
         event_result = None
         if GAME_MODULES_AVAILABLE:
-            import random
-
-            if random.random() < 0.01:  # 1% chance per status check
-                event_result = check_random_events(player, EventContext.IN_SPACE)
+            try:
+                import random
+                if random.random() < 0.01:  # 1% chance per status check
+                    event_result = check_random_events(player, EventContext.IN_SPACE)
+            except Exception as event_error:
+                app.logger.warning(f"Random event check failed: {str(event_error)}")
+                # Continue without random events
 
         # Get inventory (already loaded via relationship)
-        inventory_items = [item.to_dict() for item in player.inventory]
+        try:
+            inventory_items = [item.to_dict() for item in player.inventory]
+        except Exception as inv_error:
+            app.logger.warning(f"Inventory loading failed: {str(inv_error)}")
+            inventory_items = []
 
         # Get discovered sectors for fog of war (single query with index)
-        discovered_sectors = [
-            v.sector_id
-            for v in SectorVisibility.query.filter_by(player_id=player.id, discovered=True).all()
-        ]
+        try:
+            discovered_sectors = [
+                v.sector_id
+                for v in SectorVisibility.query.filter_by(player_id=player.id, discovered=True).all()
+            ]
+        except Exception as sector_error:
+            app.logger.warning(f"Discovered sectors loading failed: {str(sector_error)}")
+            discovered_sectors = []
 
         response = {
             "success": True,
@@ -737,15 +764,24 @@ def get_status():
             response["random_event"] = event_result
 
         # Cache for 5 seconds
-        if CACHING_AVAILABLE:
-            cache.set(cache_key, response, timeout=5)
-        else:
-            cache.set(cache_key, response, ttl=5)
+        try:
+            if CACHING_AVAILABLE:
+                cache.set(cache_key, response, timeout=5)
+            else:
+                cache.set(cache_key, response, ttl=5)
+        except Exception as cache_error:
+            app.logger.warning(f"Cache set failed: {str(cache_error)}")
+            # Continue without caching
 
         return jsonify(response)
 
     except Exception as e:
-        return jsonify({"success": False, "message": f"Error getting status: {str(e)}"}), 500
+        app.logger.error(f"Error in /api/status: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False, 
+            "message": f"Error getting status: {str(e)}",
+            "error_type": "internal_error"
+        }), 500
 
 
 @app.route("/api/travel", methods=["POST"])
