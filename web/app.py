@@ -535,30 +535,195 @@ def api_counselor_tip():
 
 @app.route("/api/npc/list", methods=["GET"])
 def api_npc_list():
+    """Get list of available NPCs"""
     if not GAME_MODULES_AVAILABLE:
         return jsonify(success=False, message="NPC system not available"), 501
+    
     systems = get_game_systems()
     npc_manager = systems.get("npc_manager")
     if not npc_manager:
         return jsonify(success=False, message="NPC system not initialized"), 501
-    # For web, list a few generic contacts
-    contacts = npc_manager.get_contacts() if hasattr(npc_manager, "get_contacts") else []
-    return jsonify(success=True, npcs=contacts)
+    
+    player = get_current_player()
+    player_location = player.current_location or f"Sector {player.current_sector}"
+    
+    try:
+        # Try to get NPCs at current location
+        npcs_list = []
+        if hasattr(npc_manager, "get_npcs_at_location"):
+            npcs_at_location = npc_manager.get_npcs_at_location(player_location)
+            npcs_list = [
+                {
+                    "name": npc.name,
+                    "type": npc.npc_type,
+                    "location": npc.location,
+                    "personality": npc.personality,
+                    "faction": npc.faction,
+                }
+                for npc in npcs_at_location
+            ]
+        elif hasattr(npc_manager, "npcs") and npc_manager.npcs:
+            # Get all NPCs from the manager
+            npcs_list = [
+                {
+                    "name": npc.name,
+                    "type": npc.npc_type,
+                    "location": npc.location,
+                    "personality": npc.personality,
+                    "faction": npc.faction,
+                }
+                for npc in npc_manager.npcs.values()
+            ]
+        elif hasattr(npc_manager, "get_contacts"):
+            contacts = npc_manager.get_contacts()
+            npcs_list = contacts if isinstance(contacts, list) else []
+        
+        # If no NPCs found, create some default contacts for the web interface
+        if not npcs_list:
+            npcs_list = [
+                {
+                    "name": "Commander Sarah",
+                    "type": "official",
+                    "location": player_location,
+                    "personality": "friendly",
+                    "faction": "Federation",
+                },
+                {
+                    "name": "Trader Marcus",
+                    "type": "trader",
+                    "location": player_location,
+                    "personality": "neutral",
+                    "faction": "Traders",
+                },
+                {
+                    "name": "Dr. Zara",
+                    "type": "scientist",
+                    "location": player_location,
+                    "personality": "friendly",
+                    "faction": "Neutral",
+                },
+            ]
+        
+        return jsonify(success=True, npcs=npcs_list)
+    
+    except Exception as e:
+        app.logger.error(f"Error getting NPC list: {str(e)}", exc_info=True)
+        # Return default NPCs on error
+        return jsonify(
+            success=True,
+            npcs=[
+                {
+                    "name": "Commander Sarah",
+                    "type": "official",
+                    "location": player_location,
+                    "personality": "friendly",
+                    "faction": "Federation",
+                },
+                {
+                    "name": "Trader Marcus",
+                    "type": "trader",
+                    "location": player_location,
+                    "personality": "neutral",
+                    "faction": "Traders",
+                },
+            ]
+        )
 
 
 @app.route("/api/npc/talk", methods=["POST"])
 def api_npc_talk():
+    """Handle NPC conversation messages"""
     if not GAME_MODULES_AVAILABLE:
         return jsonify(success=False, message="NPC system not available"), 501
+    
     systems = get_game_systems()
     npc_manager = systems.get("npc_manager")
+    if not npc_manager:
+        return jsonify(success=False, message="NPC system not initialized"), 501
+    
     data = request.get_json() or {}
-    target = data.get("name")
-    if npc_manager and hasattr(npc_manager, "talk"):
-        reply = npc_manager.talk(target)
-    else:
-        reply = f"{target} acknowledges your hail."
-    return jsonify(success=True, reply=reply)
+    target_name = data.get("name")
+    message = data.get("message", "").strip()
+    
+    if not target_name:
+        return jsonify(success=False, message="NPC name required"), 400
+    
+    player = get_current_player()
+    
+    try:
+        # Try to find the NPC from the npc_manager's npcs dictionary
+        npc = None
+        if hasattr(npc_manager, "npcs") and target_name in npc_manager.npcs:
+            npc = npc_manager.npcs[target_name]
+        elif hasattr(npc_manager, "get_npcs_at_location"):
+            # Try to find NPC at current location
+            player_location = player.current_location or f"Sector {player.current_sector}"
+            npcs_at_location = npc_manager.get_npcs_at_location(player_location)
+            npc = next((n for n in npcs_at_location if n.name == target_name), None)
+        
+        # Create GamePlayer for conversation system
+        game_player = GamePlayer(name=player.name, credits=player.credits)
+        game_player.reputation = player.reputation
+        
+        # Handle initial greeting
+        if message.lower() in ["greeting", "hello", "hi", ""] or not message:
+            if npc and hasattr(npc_manager, "start_conversation"):
+                conversation = npc_manager.start_conversation(game_player, target_name)
+                if conversation.get("success"):
+                    reply = conversation.get("greeting", f"{target_name} acknowledges your hail.")
+                else:
+                    reply = conversation.get("message", f"{target_name} acknowledges your hail.")
+            else:
+                # Fallback greeting
+                greetings = [
+                    f"{target_name} here. What do you need?",
+                    f"This is {target_name}. How can I help you?",
+                    f"{target_name} responding. What's on your mind?",
+                    f"Channel open. This is {target_name}.",
+                ]
+                import random
+                reply = random.choice(greetings)
+        else:
+            # Handle conversation choice
+            if npc and hasattr(npc_manager, "handle_conversation_choice"):
+                # Try to match message to conversation options
+                result = npc_manager.handle_conversation_choice(game_player, npc, message)
+                reply = result.get("message", f"{target_name} acknowledges your message.")
+            elif hasattr(npc_manager, "talk"):
+                reply = npc_manager.talk(target_name)
+            else:
+                # Generic response based on message content
+                import random
+                if any(word in message.lower() for word in ["help", "assist", "need"]):
+                    responses = [
+                        f"{target_name}: I can help with that. What specifically do you need?",
+                        f"{target_name}: Sure, I'll do what I can.",
+                        f"{target_name}: Let me see how I can assist you.",
+                    ]
+                elif any(word in message.lower() for word in ["trade", "buy", "sell", "market"]):
+                    responses = [
+                        f"{target_name}: I deal in various goods. What are you looking for?",
+                        f"{target_name}: Trading is my specialty. What do you need?",
+                        f"{target_name}: I have some items available. Interested?",
+                    ]
+                else:
+                    responses = [
+                        f"{target_name}: Interesting. Tell me more.",
+                        f"{target_name}: I see. What else?",
+                        f"{target_name}: Understood. Anything else?",
+                        f"{target_name}: Acknowledged.",
+                    ]
+                reply = random.choice(responses)
+        
+        return jsonify(success=True, reply=reply)
+    
+    except Exception as e:
+        app.logger.error(f"Error in NPC conversation: {str(e)}", exc_info=True)
+        return jsonify(
+            success=False, 
+            message=f"Communication error: {str(e)}",
+            reply=f"{target_name}: Communication disrupted. Please try again."
+        ), 500
 
 
 @app.route("/api/crew", methods=["GET"])

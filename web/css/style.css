@@ -1430,3 +1430,325 @@ h1, h2, h3, h4, h5, h6 {
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
+
+/* NPC List Styles */
+.npc-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.npc-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    transition: all var(--transition-normal);
+}
+
+.npc-item:hover {
+    border-color: var(--glow-color);
+    box-shadow: var(--shadow-glow);
+    transform: translateX(4px);
+}
+
+.npc-item.empty {
+    justify-content: center;
+    padding: var(--spacing-xl);
+    text-align: center;
+    color: var(--muted-text);
+}
+
+.npc-avatar {
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-bg);
+    border-radius: 50%;
+    border: 2px solid var(--glow-color);
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.3);
+}
+
+.npc-info {
+    flex: 1;
+}
+
+.npc-info h5 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--accent-text);
+    font-size: 1.1rem;
+}
+
+.npc-type {
+    color: var(--secondary-text);
+    font-size: 0.9rem;
+    margin: var(--spacing-xs) 0;
+    text-transform: capitalize;
+}
+
+.npc-location {
+    color: var(--muted-text);
+    font-size: 0.85rem;
+    margin: var(--spacing-xs) 0;
+}
+
+/* Communicator Styles - Star Trek / Sci-Fi Style */
+.communicator-container {
+    display: flex;
+    flex-direction: column;
+    height: 500px;
+    background: linear-gradient(145deg, #1a1a2e, #0a0a0f);
+    border: 3px solid var(--glow-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: 
+        0 0 20px rgba(100, 255, 218, 0.4),
+        inset 0 0 20px rgba(100, 255, 218, 0.1);
+    overflow: hidden;
+}
+
+.communicator-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+    border-bottom: 2px solid var(--glow-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.comm-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.comm-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--danger-text);
+    box-shadow: 0 0 10px var(--danger-text);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.comm-indicator.active {
+    background: var(--success-text);
+    box-shadow: 0 0 10px var(--success-text);
+}
+
+.comm-label {
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+    font-family: var(--font-mono);
+}
+
+.comm-contact {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    justify-content: center;
+}
+
+.comm-icon {
+    font-size: 1.5rem;
+    filter: drop-shadow(0 0 5px var(--glow-color));
+}
+
+.comm-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent-text);
+    text-shadow: 0 0 10px var(--glow-color);
+    font-family: var(--font-display);
+}
+
+.comm-signal {
+    display: flex;
+    align-items: center;
+}
+
+.signal-bars {
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+}
+
+.signal-bars .bar {
+    width: 4px;
+    background: var(--glow-color);
+    border-radius: 2px;
+    animation: signalPulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 5px var(--glow-color);
+}
+
+.signal-bars .bar:nth-child(1) {
+    height: 8px;
+    animation-delay: 0s;
+}
+
+.signal-bars .bar:nth-child(2) {
+    height: 12px;
+    animation-delay: 0.2s;
+}
+
+.signal-bars .bar:nth-child(3) {
+    height: 16px;
+    animation-delay: 0.4s;
+}
+
+.signal-bars .bar:nth-child(4) {
+    height: 20px;
+    animation-delay: 0.6s;
+}
+
+@keyframes signalPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+.communicator-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.message {
+    display: flex;
+    gap: var(--spacing-sm);
+    animation: slideIn 0.3s ease-out;
+    max-width: 85%;
+}
+
+.message.player-message {
+    margin-left: auto;
+    flex-direction: row-reverse;
+}
+
+.message.npc-message {
+    margin-right: auto;
+}
+
+.message.system-message {
+    margin: 0 auto;
+    max-width: 100%;
+    text-align: center;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    border: 2px solid var(--glow-color);
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.3);
+}
+
+.player-message .message-avatar {
+    background: linear-gradient(145deg, #2a2a3e, #1a1a2e);
+}
+
+.npc-message .message-avatar {
+    background: linear-gradient(145deg, #1a2a3e, #0a1a2e);
+}
+
+.message-content {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.player-message .message-content {
+    background: linear-gradient(145deg, rgba(100, 255, 218, 0.1), rgba(100, 255, 218, 0.05));
+    border-color: var(--glow-color);
+}
+
+.npc-message .message-content {
+    background: linear-gradient(145deg, rgba(255, 0, 255, 0.1), rgba(255, 0, 255, 0.05));
+    border-color: var(--glow-pink);
+}
+
+.message-sender {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-text);
+    margin-bottom: var(--spacing-xs);
+    font-family: var(--font-mono);
+}
+
+.message-text {
+    color: var(--primary-text);
+    line-height: 1.5;
+    margin-bottom: var(--spacing-xs);
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: var(--muted-text);
+    font-family: var(--font-mono);
+    margin-top: var(--spacing-xs);
+}
+
+.system-message {
+    background: rgba(255, 255, 0, 0.1);
+    border-color: var(--accent-yellow);
+    color: var(--accent-yellow);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+.communicator-input {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: linear-gradient(180deg, #1a1a2e, #0a0a0f);
+    border-top: 2px solid var(--glow-color);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.communicator-input input {
+    flex: 1;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--terminal-bg);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    color: var(--primary-text);
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all var(--transition-fast);
+}
+
+.communicator-input input:focus {
+    border-color: var(--glow-color);
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.3);
+}
+
+.communicator-input input::placeholder {
+    color: var(--muted-text);
+}
+
+.communicator-input .btn {
+    white-space: nowrap;
+    padding: var(--spacing-sm) var(--spacing-md);
+}

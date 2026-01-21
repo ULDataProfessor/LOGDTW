@@ -2371,26 +2371,234 @@ function showActiveMissions() {
     modal.show();
 }
 
-function contactNPCs() {
-    const content = Object.entries(npcDatabase).map(([key, npc]) => `
+async function contactNPCs() {
+    try {
+        const response = await fetch('/api/npc/list');
+        const data = await response.json();
+        
+        if (!data.success || !data.npcs || data.npcs.length === 0) {
+            // Fallback to empty list message
+            const modal = new Modal('NPC Communications', `
+                <div class="npc-list">
+                    <div class="npc-item empty">
+                        <p>No NPCs available at this location. Try visiting different sectors to meet new contacts.</p>
+                    </div>
+                </div>
+            `);
+            modal.show();
+            return;
+        }
+        
+        const content = data.npcs.map((npc) => `
             <div class="npc-item">
-                <h5>${npc.name}</h5>
-                <p>"${npc.getLine('greeting')}"</p>
-                <button onclick="talkToNPC('${key}')">Talk</button>
+                <div class="npc-avatar">📡</div>
+                <div class="npc-info">
+                    <h5>${npc.name || 'Unknown Contact'}</h5>
+                    <p class="npc-type">${npc.type || 'Contact'}</p>
+                    <p class="npc-location">${npc.location || 'Unknown Location'}</p>
+                </div>
+                <button class="btn btn-primary" onclick="openConversationModal('${npc.name || 'Unknown'}')">
+                    📞 Open Channel
+                </button>
             </div>
-    `).join('');
-    const modal = new Modal('NPC Communications', `<div class="npc-list">${content}</div>`);
-    modal.show();
+        `).join('');
+        
+        const modal = new Modal('NPC Communications', `<div class="npc-list">${content}</div>`);
+        modal.show();
+    } catch (error) {
+        console.error('Error loading NPCs:', error);
+        const modal = new Modal('NPC Communications', `
+            <div class="npc-list">
+                <div class="npc-item empty">
+                    <p>Error loading NPC contacts. Please try again later.</p>
+                </div>
+            </div>
+        `);
+        modal.show();
+    }
 }
 
-function talkToNPC(npcKey) {
-    closeModal();
-    if (window.game) {
-        const npc = npcDatabase[npcKey];
-        const line = npc.getLine('rumors');
-        window.game.terminal.addLine(npc.name, line, 'info');
-        npc.adjustRelationship('player', 1);
+function openConversationModal(npcName) {
+    closeModal(); // Close the NPC list modal
+    
+    // Create communicator-style conversation modal
+    const conversationId = `conversation-${Date.now()}`;
+    const modalContent = `
+        <div class="communicator-container" id="${conversationId}">
+            <div class="communicator-header">
+                <div class="comm-status">
+                    <span class="comm-indicator active"></span>
+                    <span class="comm-label">Channel Open</span>
+                </div>
+                <div class="comm-contact">
+                    <span class="comm-icon">📡</span>
+                    <span class="comm-name">${npcName}</span>
+                </div>
+                <div class="comm-signal">
+                    <span class="signal-bars">
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                        <span class="bar"></span>
+                    </span>
+                </div>
+            </div>
+            <div class="communicator-messages" id="${conversationId}-messages">
+                <div class="message npc-message">
+                    <div class="message-avatar">📡</div>
+                    <div class="message-content">
+                        <div class="message-sender">${npcName}</div>
+                        <div class="message-text">Establishing connection...</div>
+                        <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="communicator-input">
+                <input type="text" 
+                       id="${conversationId}-input" 
+                       placeholder="Type your message..." 
+                       autocomplete="off"
+                       onkeypress="if(event.key==='Enter') sendConversationMessage('${conversationId}', '${npcName}')">
+                <button class="btn btn-primary" onclick="sendConversationMessage('${conversationId}', '${npcName}')">
+                    Send
+                </button>
+                <button class="btn btn-secondary" onclick="closeConversation('${conversationId}')">
+                    Close Channel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    const modal = new Modal('Communicator', modalContent);
+    modal.show();
+    
+    // Auto-focus input
+    setTimeout(() => {
+        const input = document.getElementById(`${conversationId}-input`);
+        if (input) input.focus();
+    }, 100);
+    
+    // Send initial greeting
+    setTimeout(() => {
+        sendInitialGreeting(conversationId, npcName);
+    }, 500);
+}
+
+async function sendInitialGreeting(conversationId, npcName) {
+    try {
+        const response = await fetch('/api/npc/talk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: npcName, message: 'greeting' })
+        });
+        
+        const data = await response.json();
+        if (data.success && data.reply) {
+            updateConversationMessage(conversationId, npcName, data.reply, 'npc');
+        }
+    } catch (error) {
+        console.error('Error sending greeting:', error);
+        updateConversationMessage(conversationId, 'System', 'Connection error. Please try again.', 'system');
     }
+}
+
+async function sendConversationMessage(conversationId, npcName) {
+    const input = document.getElementById(`${conversationId}-input`);
+    if (!input) return;
+    
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add player message to conversation
+    addPlayerMessage(conversationId, message);
+    input.value = '';
+    
+    // Send to server and get NPC response
+    try {
+        const response = await fetch('/api/npc/talk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: npcName, message: message })
+        });
+        
+        const data = await response.json();
+        if (data.success && data.reply) {
+            setTimeout(() => {
+                updateConversationMessage(conversationId, npcName, data.reply, 'npc');
+            }, 500); // Small delay for realism
+        } else {
+            updateConversationMessage(conversationId, 'System', 'No response received.', 'system');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        updateConversationMessage(conversationId, 'System', 'Communication error. Channel may be disrupted.', 'system');
+    }
+}
+
+function addPlayerMessage(conversationId, message) {
+    const messagesContainer = document.getElementById(`${conversationId}-messages`);
+    if (!messagesContainer) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message player-message';
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-sender">You</div>
+            <div class="message-text">${escapeHtml(message)}</div>
+            <div class="message-time">${new Date().toLocaleTimeString()}</div>
+        </div>
+        <div class="message-avatar">👤</div>
+    `;
+    
+    messagesContainer.appendChild(messageDiv);
+    scrollToBottom(messagesContainer);
+}
+
+function updateConversationMessage(conversationId, sender, text, type = 'npc') {
+    const messagesContainer = document.getElementById(`${conversationId}-messages`);
+    if (!messagesContainer) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}-message`;
+    
+    if (type === 'npc') {
+        messageDiv.innerHTML = `
+            <div class="message-avatar">📡</div>
+            <div class="message-content">
+                <div class="message-sender">${escapeHtml(sender)}</div>
+                <div class="message-text">${escapeHtml(text)}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="message-content system-message">
+                <div class="message-text">${escapeHtml(text)}</div>
+                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+    }
+    
+    messagesContainer.appendChild(messageDiv);
+    scrollToBottom(messagesContainer);
+}
+
+function scrollToBottom(container) {
+    container.scrollTop = container.scrollHeight;
+}
+
+function closeConversation(conversationId) {
+    closeModal();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function showLore() {
