@@ -1333,6 +1333,10 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 0 10px var(--glow-color);
 }
 
+.loading-screen .spinner-8bit {
+    margin: 0 auto 20px;
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

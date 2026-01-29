@@ -1075,8 +1075,26 @@ class Modal {
             document.getElementById('modal-footer').innerHTML = this.footer;
         }
         
+        // Add VHS distortion effect on modal open
+        this.overlay.classList.add('modal-transition');
+        
         // Show modal
         this.overlay.classList.add('active');
+        
+        // Remove transition class after animation
+        setTimeout(() => {
+            this.overlay.classList.remove('modal-transition');
+        }, 300);
+        
+        // Add retro button press effects to all buttons in modal
+        setTimeout(() => {
+            const buttons = this.overlay.querySelectorAll('button');
+            buttons.forEach(btn => {
+                if (!btn.classList.contains('btn-retro-press')) {
+                    btn.classList.add('btn-retro-press');
+                }
+            });
+        }, 100);
         
         // Focus trap
         const focusableElements = this.overlay.querySelectorAll(
