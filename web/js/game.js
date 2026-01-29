@@ -127,6 +127,19 @@ class TerminalManager {
         if (type === 'system') {
             content.classList.add('typing-effect');
         }
+        
+        // Add glitch effect for errors
+        if (type === 'error') {
+            line.classList.add('glitch-text');
+            content.classList.add('error-glitch');
+            // Trigger VHS distortion on terminal for errors
+            if (this.screen && this.screen.parentElement) {
+                this.screen.parentElement.classList.add('vhs-distort');
+                setTimeout(() => {
+                    this.screen.parentElement.classList.remove('vhs-distort');
+                }, 300);
+            }
+        }
     }
     
     addTable(headers, rows) {
@@ -956,29 +969,62 @@ class UIManager {
             if (localStorage.getItem('setting-toasts') === '0') return; 
         } catch(_){}
         
+        // Use 8-bit style toast
+        this.show8BitToast(message, type);
+    }
+    
+    show8BitToast(message, type = 'info') {
         const container = document.getElementById('toast-container');
-        if (!container) return;
+        if (!container) {
+            // Fallback: create container if it doesn't exist
+            const newsPanel = document.querySelector('.news-panel');
+            if (newsPanel) {
+                const fallbackContainer = document.createElement('div');
+                fallbackContainer.id = 'toast-container';
+                fallbackContainer.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;';
+                document.body.appendChild(fallbackContainer);
+                return this.show8BitToast(message, type);
+            }
+            return;
+        }
         
-        const notification = document.createElement('div');
-        notification.style.cssText = 'background:var(--panel-bg);border:2px solid var(--accent-text);color:var(--primary-text);padding:8px 12px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);margin-bottom:4px;opacity:0;transition:opacity 0.3s ease;';
-        notification.textContent = message;
+        const toast = document.createElement('div');
+        toast.className = `toast-8bit ${type}`;
+        toast.textContent = message;
         
-        container.appendChild(notification);
+        // Add glitch effect for errors
+        if (type === 'error') {
+            toast.classList.add('glitch-effect');
+        }
         
-        // Animate in
-        requestAnimationFrame(() => {
-            notification.style.opacity = '1';
-        });
+        container.appendChild(toast);
         
-        // Auto-remove after 3 seconds with fade out
+        // Auto-remove after 4 seconds
         setTimeout(() => {
-            notification.style.opacity = '0';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(400px)';
             setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
                 }
             }, 300);
-        }, 3000);
+        }, 4000);
+    }
+    
+    triggerGlitchEffect(element) {
+        if (!element) return;
+        element.classList.add('glitch-effect');
+        setTimeout(() => {
+            element.classList.remove('glitch-effect');
+        }, 500);
+    }
+    
+    triggerVHSDistortion(element) {
+        if (!element) return;
+        element.classList.add('vhs-distort');
+        setTimeout(() => {
+            element.classList.remove('vhs-distort');
+        }, 500);
     }
     
     formatNumber(num) {
@@ -1111,6 +1157,12 @@ class GameEngine {
         // Setup event listeners
         this.setupEventListeners();
         
+        // Add retro button press effects to all buttons
+        this.addRetroButtonEffects();
+        
+        // Add VHS distortion on page transitions
+        this.addTransitionEffects();
+        
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             if (this.ui) {
@@ -1119,6 +1171,57 @@ class GameEngine {
         });
         
         console.log('✅ Game initialized successfully');
+    }
+    
+    addRetroButtonEffects() {
+        // Add retro press effect to all buttons
+        const buttons = document.querySelectorAll('button.btn, .action-btn, .quick-btn');
+        buttons.forEach(btn => {
+            if (!btn.classList.contains('btn-retro-press')) {
+                btn.classList.add('btn-retro-press');
+            }
+        });
+        
+        // Also add to dynamically created buttons
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === 1) { // Element node
+                        if (node.tagName === 'BUTTON' || node.querySelectorAll) {
+                            const newButtons = node.tagName === 'BUTTON' 
+                                ? [node] 
+                                : node.querySelectorAll('button');
+                            newButtons.forEach(btn => {
+                                if (!btn.classList.contains('btn-retro-press')) {
+                                    btn.classList.add('btn-retro-press');
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+    
+    addTransitionEffects() {
+        // Add VHS distortion to page transitions
+        document.addEventListener('click', (e) => {
+            // Check if clicking a navigation link or button that causes transition
+            if (e.target.matches('a[href], button[onclick*="show"], button[onclick*="open"]')) {
+                const gameContainer = document.getElementById('game-container');
+                if (gameContainer) {
+                    gameContainer.classList.add('page-transition');
+                    setTimeout(() => {
+                        gameContainer.classList.remove('page-transition');
+                    }, 500);
+                }
+            }
+        });
     }
 
     setUserDisplay(name) {
