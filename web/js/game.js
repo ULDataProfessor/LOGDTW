@@ -2601,6 +2601,100 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+async function activateDatabase() {
+    const btn = document.getElementById('activate-db-btn');
+    const dbIndicator = document.getElementById('db-status-indicator');
+    const dbText = document.getElementById('db-status-text');
+    
+    if (!btn || !dbIndicator || !dbText) return;
+    
+    // Disable button and show loading state
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Activating...';
+    btn.style.opacity = '0.6';
+    
+    // Update status indicator
+    dbIndicator.className = 'status-indicator syncing';
+    dbText.textContent = 'Activating...';
+    
+    try {
+        // Call the database check endpoint which will attempt to reconnect and sync
+        const response = await fetch('/api/db/check');
+        const data = await response.json();
+        
+        if (data.success && data.connected) {
+            // Successfully connected
+            dbIndicator.className = 'status-indicator online';
+            if (data.synced && data.synced > 0) {
+                dbText.textContent = `Connected (${data.synced} synced)`;
+                // Show success notification
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.addLine('SYSTEM', `Database activated! Synced ${data.synced} pending changes.`, 'success');
+                }
+            } else {
+                dbText.textContent = 'Connected';
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.addLine('SYSTEM', 'Database connection activated successfully.', 'success');
+                }
+            }
+            
+            // Update game engine's database status
+            if (window.game && window.game.updateDatabaseStatus) {
+                window.game.updateDatabaseStatus({
+                    primary_connected: true,
+                    local_mode: false,
+                    sync_queue: { pending_sync: 0 }
+                });
+            }
+        } else {
+            // Connection failed
+            const isLocalMode = data.local_mode === true;
+            if (isLocalMode) {
+                dbIndicator.className = 'status-indicator warning';
+                dbText.textContent = 'Local Mode';
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.addLine('SYSTEM', 'Database unavailable. Using local mode.', 'warning');
+                }
+            } else {
+                dbIndicator.className = 'status-indicator offline';
+                dbText.textContent = 'Disconnected';
+                if (window.game && window.game.terminal) {
+                    window.game.terminal.addLine('SYSTEM', `Database activation failed: ${data.message || 'Connection error'}`, 'error');
+                }
+            }
+            
+            // Update game engine's database status
+            if (window.game && window.game.updateDatabaseStatus) {
+                window.game.updateDatabaseStatus({
+                    primary_connected: false,
+                    local_mode: isLocalMode,
+                    sync_queue: { pending_sync: 0 }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error activating database:', error);
+        dbIndicator.className = 'status-indicator offline';
+        dbText.textContent = 'Error';
+        if (window.game && window.game.terminal) {
+            window.game.terminal.addLine('SYSTEM', 'Failed to activate database. Network error.', 'error');
+        }
+    } finally {
+        // Re-enable button
+        btn.disabled = false;
+        btn.textContent = originalText;
+        btn.style.opacity = '1';
+        
+        // Refresh database status after a short delay
+        if (window.game && window.game.checkDatabaseStatus) {
+            setTimeout(() => {
+                window.game.checkDatabaseStatus();
+            }, 1000);
+        }
+    }
+}
+
 function showLore() {
     const entries = storyContent.lore.map(l => `
         <div class="lore-item">
